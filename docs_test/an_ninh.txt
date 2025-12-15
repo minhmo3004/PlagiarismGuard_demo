@@ -1,0 +1,10 @@
+An ninh mạng là một trong những ưu tiên hàng đầu của mọi tổ chức hiện đại.
+Tấn công ransomware và phishing đang ngày càng tinh vi và phức tạp hơn.
+Machine learning giúp phát hiện các hành vi bất thường trong mạng máy tính.
+Firewall thế hệ mới sử dụng AI để chống lại các cuộc tấn công zero-day.
+Bảo mật đa lớp là chiến lược quan trọng để bảo vệ dữ liệu doanh nghiệp.
+
+Mã hóa dữ liệu là nền tảng quan trọng để bảo vệ thông tin trong kỷ nguyên số.
+AES và RSA là hai thuật toán mã hóa được sử dụng phổ biến nhất hiện nay.
+Blockchain sử dụng hàm băm và chữ ký số để đảm bảo tính toàn vẹn dữ liệu.
+Xác thực hai yếu tố giúp tăng cường bảo mật tài khoản người dùng.

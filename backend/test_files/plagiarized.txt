@@ -1,0 +1,5 @@
+Trí tuệ nhân tạo đang được ứng dụng rộng rãi trong lĩnh vực y tế hiện đại.
+Các hệ thống AI có thể hỗ trợ chẩn đoán bệnh từ hình ảnh y khoa như X-quang và MRI.
+Machine learning giúp phân tích dữ liệu bệnh nhân để dự đoán nguy cơ mắc bệnh.
+Deep learning được sử dụng để phát hiện ung thư từ hình ảnh mô bệnh học.
+Chatbot AI hỗ trợ tư vấn sức khỏe và đặt lịch khám bệnh trực tuyến.

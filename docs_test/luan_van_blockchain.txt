@@ -1,0 +1,68 @@
+ĐẠI HỌC QUỐC GIA HÀ NỘI
+TRƯỜNG ĐẠI HỌC CÔNG NGHỆ
+KHOA CÔNG NGHỆ THÔNG TIN
+
+---
+
+LUẬN VĂN THẠC SĨ
+HỆ THỐNG THANH TOÁN ĐIỆN TỬ DỰA TRÊN BLOCKCHAIN
+
+Học viên: Lê Thị C
+MSHV: CH2023001
+Người hướng dẫn: PGS.TS. Phạm Văn D
+
+Hà Nội, 2023
+
+---
+
+CHƯƠNG 1: TỔNG QUAN
+
+1.1 Bối cảnh nghiên cứu
+
+Blockchain là công nghệ cơ sở dữ liệu phân tán, cho phép lưu trữ thông tin một cách an toàn và minh bạch. Công nghệ này đang được ứng dụng rộng rãi trong lĩnh vực tài chính, đặc biệt là thanh toán điện tử.
+
+Các hệ thống thanh toán truyền thống phụ thuộc vào bên trung gian như ngân hàng, dẫn đến chi phí cao và thời gian xử lý lâu. Blockchain giúp loại bỏ trung gian, giảm chi phí và tăng tốc độ giao dịch.
+
+1.2 Mục tiêu luận văn
+
+Nghiên cứu và xây dựng hệ thống thanh toán điện tử sử dụng blockchain với các tính năng:
+- Giao dịch nhanh chóng và an toàn
+- Chi phí thấp
+- Minh bạch và có thể kiểm tra
+
+CHƯƠNG 2: CÔNG NGHỆ BLOCKCHAIN
+
+2.1 Cấu trúc Blockchain
+
+Blockchain là chuỗi các khối (block) liên kết với nhau bằng mã băm. Mỗi khối chứa:
+- Dữ liệu giao dịch
+- Timestamp
+- Hash của khối trước đó
+- Nonce (số chỉ dùng một lần)
+
+2.2 Cơ chế đồng thuận
+
+Proof of Work (PoW) là cơ chế đồng thuận phổ biến nhất, yêu cầu các node giải bài toán mật mã phức tạp để thêm khối mới.
+
+Proof of Stake (PoS) là giải pháp thay thế tiết kiệm năng lượng hơn, dựa trên số lượng token mà node nắm giữ.
+
+CHƯƠNG 3: THIẾT KẾ HỆ THỐNG
+
+3.1 Kiến trúc
+
+Hệ thống gồm 3 lớp:
+- Lớp ứng dụng: Giao diện người dùng
+- Lớp logic: Xử lý giao dịch và smart contract
+- Lớp blockchain: Lưu trữ và xác thực giao dịch
+
+3.2 Smart Contract
+
+Smart contract tự động thực thi các điều khoản giao dịch khi điều kiện được đáp ứng, loại bỏ nhu cầu bên thứ ba.
+
+CHƯƠNG 4: TRIỂN KHAI
+
+Hệ thống được triển khai trên Ethereum testnet với 1000 giao dịch thử nghiệm. Kết quả cho thấy thời gian xử lý trung bình 15 giây, chi phí gas 0.002 ETH.
+
+KẾT LUẬN
+
+Luận văn đã xây dựng thành công hệ thống thanh toán blockchain với độ tin cậy cao và chi phí thấp.

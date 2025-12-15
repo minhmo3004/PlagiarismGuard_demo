@@ -1,0 +1,61 @@
+ĐẠI HỌC QUỐC GIA TP.HCM
+TRƯỜNG ĐẠI HỌC BÁCH KHOA
+KHOA KHOA HỌC MÁY TÍNH
+
+---
+
+ĐỒ ÁN TỐT NGHIỆP
+ỨNG DỤNG TRÍ TUỆ NHÂN TẠO TRONG CHẨN ĐOÁN Y TẾ
+
+Sinh viên thực hiện: Nguyễn Văn A
+MSSV: 1812345
+Giảng viên hướng dẫn: TS. Trần Văn B
+
+TP. Hồ Chí Minh, 2023
+
+---
+
+CHƯƠNG 1: GIỚI THIỆU
+
+1.1 Đặt vấn đề
+
+Trong những năm gần đây, trí tuệ nhân tạo đã có những bước tiến vượt bậc trong nhiều lĩnh vực, đặc biệt là y tế. Việc ứng dụng AI vào chẩn đoán bệnh không chỉ giúp tăng độ chính xác mà còn giảm thiểu thời gian và chi phí cho bệnh nhân.
+
+Hệ thống chẩn đoán y tế truyền thống phụ thuộc hoàn toàn vào kinh nghiệm của bác sĩ. Tuy nhiên, với khối lượng dữ liệu y tế ngày càng lớn, việc phân tích thủ công trở nên khó khăn và dễ sai sót.
+
+1.2 Mục tiêu nghiên cứu
+
+Đồ án này tập trung vào việc xây dựng một hệ thống AI có khả năng:
+- Phân tích hình ảnh X-quang phổi để phát hiện bệnh
+- Dự đoán nguy cơ mắc bệnh dựa trên dữ liệu lâm sàng
+- Hỗ trợ bác sĩ đưa ra quyết định chẩn đoán nhanh chóng
+
+CHƯƠNG 2: CƠ SỞ LÝ THUYẾT
+
+2.1 Machine Learning
+
+Machine Learning là nhánh của AI cho phép máy tính học từ dữ liệu mà không cần lập trình cụ thể. Các thuật toán ML phổ biến bao gồm:
+- Decision Tree: Cây quyết định phân loại dữ liệu
+- Random Forest: Tập hợp nhiều cây quyết định
+- Neural Network: Mạng nơ-ron nhân tạo
+
+2.2 Deep Learning
+
+Deep Learning sử dụng mạng nơ-ron sâu với nhiều lớp ẩn. Convolutional Neural Network (CNN) đặc biệt hiệu quả trong xử lý hình ảnh y tế.
+
+CHƯƠNG 3: THIẾT KẾ HỆ THỐNG
+
+3.1 Kiến trúc tổng thể
+
+Hệ thống gồm 3 module chính:
+- Module tiền xử lý: Chuẩn hóa dữ liệu đầu vào
+- Module huấn luyện: Training model với dataset
+- Module dự đoán: Inference trên dữ liệu mới
+
+3.2 Dataset
+
+Sử dụng bộ dữ liệu ChestX-ray14 với 112,120 hình ảnh X-quang từ 30,805 bệnh nhân.
+
+KẾT LUẬN
+
+Đồ án đã xây dựng thành công hệ thống AI chẩn đoán bệnh với độ chính xác 92%. Hướng phát triển tiếp theo là tích hợp thêm các loại hình ảnh y tế khác.

@@ -1,0 +1,80 @@
+ĐẠI HỌC BÁCH KHOA HÀ NỘI
+VIỆN CÔNG NGHỆ THÔNG TIN VÀ TRUYỀN THÔNG
+
+---
+
+KHÓA LUẬN TỐT NGHIỆP
+HỆ THỐNG PHÁT HIỆN XÂM NHẬP MẠNG SỬ DỤNG MACHINE LEARNING
+
+Sinh viên: Trần Văn G
+MSSV: 20184567
+Giảng viên hướng dẫn: TS. Lê Thị H
+
+Hà Nội, 2023
+
+---
+
+CHƯƠNG 1: TỔNG QUAN
+
+1.1 Đặt vấn đề
+
+An ninh mạng là vấn đề cấp thiết trong thời đại số. Các cuộc tấn công mạng ngày càng tinh vi, gây thiệt hại hàng tỷ đô la mỗi năm.
+
+Hệ thống phát hiện xâm nhập (IDS) truyền thống dựa trên signature matching, không thể phát hiện các cuộc tấn công mới (zero-day attack).
+
+1.2 Mục tiêu nghiên cứu
+
+Xây dựng IDS sử dụng Machine Learning có khả năng:
+- Phát hiện các mẫu tấn công đã biết
+- Nhận diện anomaly (bất thường) trong traffic
+- Tự động cập nhật khi có mẫu tấn công mới
+
+CHƯƠNG 2: CƠ SỞ LÝ THUYẾT
+
+2.1 Các loại tấn công mạng
+
+- DDoS (Distributed Denial of Service): Tấn công từ chối dịch vụ
+- Port Scanning: Quét cổng để tìm lỗ hổng
+- SQL Injection: Tấn công cơ sở dữ liệu
+- Malware: Phần mềm độc hại
+
+2.2 Machine Learning cho IDS
+
+Supervised Learning: Huấn luyện với dữ liệu đã gán nhãn (normal/attack)
+- Random Forest: Tập hợp cây quyết định
+- SVM (Support Vector Machine): Phân loại bằng siêu phẳng
+- Neural Network: Mạng nơ-ron
+
+Unsupervised Learning: Phát hiện anomaly không cần nhãn
+- K-means Clustering: Gom cụm dữ liệu
+- Isolation Forest: Tìm điểm bất thường
+
+CHƯƠNG 3: THIẾT KẾ HỆ THỐNG
+
+3.1 Kiến trúc
+
+Hệ thống gồm 4 module:
+- Capture: Thu thập network traffic
+- Preprocessing: Trích xuất features
+- Detection: Phân loại bằng ML model
+- Alert: Cảnh báo khi phát hiện tấn công
+
+3.2 Feature Engineering
+
+Trích xuất 41 features từ network packet:
+- Duration: Thời gian kết nối
+- Protocol type: TCP/UDP/ICMP
+- Service: HTTP/FTP/SSH
+- Bytes transferred: Số byte truyền
+
+3.3 Dataset
+
+Sử dụng NSL-KDD dataset với 125,973 records, bao gồm 4 loại tấn công chính.
+
+CHƯƠNG 4: KẾT QUẢ
+
+Random Forest đạt accuracy 98.7%, precision 97.2%, recall 96.8%. Thời gian phát hiện trung bình 0.3 giây.
+
+KẾT LUẬN
+
+Hệ thống ML-IDS đạt hiệu quả cao trong phát hiện tấn công mạng, vượt trội so với IDS truyền thống.
