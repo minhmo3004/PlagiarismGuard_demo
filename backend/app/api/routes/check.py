@@ -9,7 +9,7 @@ from app.models.user import User
 from typing import List
 import uuid
 from datetime import datetime
- from fastapi import Depends
+from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
