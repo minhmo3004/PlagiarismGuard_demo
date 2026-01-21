@@ -39,76 +39,9 @@ def get_checker():
     return _checker
 
 
-# ═══════════════════════════════════════════════════════════════
-# FEATURE 1: So sánh 2 files với nhau
-# ═══════════════════════════════════════════════════════════════
-
-@router.post("/compare")
-async def compare_two_files(
-    file1: UploadFile = File(..., description="File thứ nhất"),
-    file2: UploadFile = File(..., description="File thứ hai")
-):
-    """
-    So sánh 2 files với nhau
-    
-    - Upload 2 files PDF/DOCX/TXT
-    - Trả về % tương đồng giữa 2 files
-    
-    Returns:
-        - similarity: % tương đồng (0-100)
-        - is_similar: True nếu >= 40%
-        - file1_word_count: Số từ file 1
-        - file2_word_count: Số từ file 2
-        - processing_time_ms: Thời gian xử lý (ms)
-    """
-    # Validate file types
-    allowed = ['.pdf', '.docx', '.txt']
-    ext1 = os.path.splitext(file1.filename)[1].lower()
-    ext2 = os.path.splitext(file2.filename)[1].lower()
-    
-    if ext1 not in allowed or ext2 not in allowed:
-        raise HTTPException(400, detail=f"Chỉ hỗ trợ: {allowed}")
-    
-    # Save to temp files
-    with tempfile.NamedTemporaryFile(delete=False, suffix=ext1) as tmp1:
-        content1 = await file1.read()
-        tmp1.write(content1)
-        tmp1_path = tmp1.name
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix=ext2) as tmp2:
-        content2 = await file2.read()
-        tmp2.write(content2)
-        tmp2_path = tmp2.name
-    
-    try:
-        checker = get_checker()
-        result = checker.compare_two_files(
-            tmp1_path, file1.filename,
-            tmp2_path, file2.filename
-        )
-        
-        return {
-            "file1": file1.filename,
-            "file2": file2.filename,
-            "similarity": round(result.similarity * 100, 2),
-            "is_similar": result.is_similar,
-            "similarity_level": (
-                "high" if result.similarity >= 0.7 else
-                "medium" if result.similarity >= 0.4 else
-                "low" if result.similarity >= 0.2 else
-                "none"
-            ),
-            "file1_word_count": result.file1_word_count,
-            "file2_word_count": result.file2_word_count,
-            "processing_time_ms": result.processing_time_ms
-        }
-    finally:
-        os.unlink(tmp1_path)
-        os.unlink(tmp2_path)
-
 
 # ═══════════════════════════════════════════════════════════════
-# FEATURE 2: Check 1 file với corpus
+# FEATURE chính: Check 1 file với corpus
 # ═══════════════════════════════════════════════════════════════
 
 @router.post("/check")
@@ -137,15 +70,24 @@ async def check_single_file(
     if ext not in allowed:
         raise HTTPException(400, detail=f"Chỉ hỗ trợ: {allowed}")
     
-    # Save temp file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = tmp.name
+    
+    # Save file permanently in uploads/ directory
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'uploads')
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Generate unique filename
+    file_id = str(uuid.uuid4())
+    safe_filename = f"{file_id}_{file.filename}"
+    file_path = os.path.join(upload_dir, safe_filename)
     
     try:
+        # Save file
+        content = await file.read()
+        with open(file_path, 'wb') as f:
+            f.write(content)
+        
         checker = get_checker()
-        result = checker.check_against_corpus(tmp_path, file.filename)
+        result = checker.check_against_corpus(file_path, file.filename)
         
         response = {
             "filename": file.filename,
@@ -167,15 +109,16 @@ async def check_single_file(
             ]
         }
         
-        # Save to history in Redis
+        # Save to history in Redis with file path
         try:
             r = redis.Redis(host='localhost', port=6379, db=0)
             history_item = {
-                "id": str(uuid.uuid4()),
+                "id": file_id,  # Use same ID for consistency
                 "query_name": file.filename,
                 "overall_similarity": round(result.overall_similarity * 100, 2),
                 "matches_count": len(result.matches),
                 "plagiarism_level": result.plagiarism_level,
+                "file_path": file_path,  # Save file path for download
                 "created_at": datetime.now().isoformat()
             }
             r.lpush("check:history", json.dumps(history_item))
@@ -184,8 +127,11 @@ async def check_single_file(
             pass  # Ignore history save errors
         
         return response
-    finally:
-        os.unlink(tmp_path)
+    except Exception as e:
+        # Clean up file if processing failed
+        if os.path.exists(file_path):
+            os.unlink(file_path)
+        raise
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -248,6 +194,89 @@ async def get_history(
             "page": page,
             "page_size": page_size
         }
+
+
+@router.delete("/history/{item_id}")
+async def delete_history_item(item_id: str):
+    """Delete a single history item"""
+    try:
+        r = redis.Redis(host='localhost', port=6379, db=0)
+        
+        # Get all history items
+        items_raw = r.lrange("check:history", 0, -1)
+        
+        # Filter out the item to delete
+        new_items = []
+        deleted = False
+        for item in items_raw:
+            try:
+                if isinstance(item, bytes):
+                    item = item.decode()
+                item_data = json.loads(item)
+                if item_data.get('id') != item_id:
+                    new_items.append(item)
+                else:
+                    deleted = True
+            except:
+                continue
+        
+        if not deleted:
+            raise HTTPException(404, detail="History item not found")
+        
+        # Replace the list
+        r.delete("check:history")
+        if new_items:
+            for item in new_items:
+                r.rpush("check:history", item)
+        
+        return {"message": "History item deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/history/{item_id}/download")
+async def download_history_file(item_id: str):
+    """Download the original file from history"""
+    from fastapi.responses import FileResponse
+    
+    try:
+        r = redis.Redis(host='localhost', port=6379, db=0)
+        
+        # Find the history item
+        items_raw = r.lrange("check:history", 0, -1)
+        
+        for item in items_raw:
+            try:
+                if isinstance(item, bytes):
+                    item = item.decode()
+                item_data = json.loads(item)
+                
+                if item_data.get('id') == item_id:
+                    filename = item_data.get('query_name', 'document.txt')
+                    file_path = item_data.get('file_path')
+                    
+                    # If file path exists and file still exists
+                    if file_path and os.path.exists(file_path):
+                        return FileResponse(
+                            path=file_path,
+                            filename=filename,
+                            media_type='application/octet-stream'
+                        )
+                    else:
+                        raise HTTPException(
+                            404, 
+                            detail="File no longer exists. Files are automatically deleted after processing."
+                        )
+            except json.JSONDecodeError:
+                continue
+        
+        raise HTTPException(404, detail="History item not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
 
 
 @router.delete("/history")

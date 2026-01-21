@@ -152,7 +152,24 @@ export const getDocumentContent = async (documentId: string): Promise<{ content:
 
 // Delete comparison
 export const deleteComparison = async (queryId: string): Promise<void> => {
-    await apiClient.delete(`/comparisons/${queryId}`);
+    await apiClient.delete(`/plagiarism/history/${queryId}`);
+};
+
+// Download history file
+export const downloadHistoryFile = async (itemId: string, filename: string): Promise<void> => {
+    const response = await apiClient.get(`/plagiarism/history/${itemId}/download`, {
+        responseType: 'blob',
+    });
+
+    // Create blob link to download
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
 };
 
 // Health check

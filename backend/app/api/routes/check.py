@@ -9,6 +9,13 @@ from app.models.user import User
 from typing import List
 import uuid
 from datetime import datetime
+ from fastapi import Depends
+from sqlalchemy.orm import Session
+
+from app.db.database import SessionLocal
+from app.services.storage import S3Storage
+from app.services.document_service import DocumentService
+from app.workers.tasks import process_document
 
 router = APIRouter(prefix="/check", tags=["Plagiarism Check"])
 
@@ -56,17 +63,52 @@ async def upload_document(
     
     # Generate job ID
     job_id = str(uuid.uuid4())
-    
-    # TODO: Save file to temp storage
-    # file_path = await save_upload_file(file, job_id)
-    
-    # TODO: Create job record in database
-    # await create_job(job_id, current_user.id, file.filename, file_path)
-    
-    # TODO: Queue background task
-    # from app.workers.tasks import process_document
-    # process_document.delay(job_id, file_path)
-    
+
+    # Read file bytes
+    content = await file.read()
+
+    # Compute SHA256
+    file_hash = DocumentService.compute_sha256(content)
+
+    # Upload to MinIO
+    storage = S3Storage()
+    object_name = f"uploads/{job_id}_{file.filename}"
+    s3_path = storage.upload_bytes(content, object_name)
+
+    # Save document metadata to Postgres
+    db: Session = SessionLocal()
+    try:
+        doc = DocumentService.create_document(
+            db,
+            owner_id=current_user.id if hasattr(current_user, 'id') else None,
+            original_filename=file.filename,
+            s3_path=s3_path,
+            file_hash=file_hash,
+            file_size=len(content)
+        )
+
+        # Create a check job record in DB (use job_id as CheckResult.id)
+        from app.db import models
+        result = models.CheckResult(
+            id=job_id,
+            user_id=current_user.id if hasattr(current_user, 'id') else None,
+            query_doc_id=doc.id,
+            query_filename=file.filename,
+            status='pending'
+        )
+        db.add(result)
+        db.commit()
+
+    finally:
+        db.close()
+
+    # Queue background processing via Celery
+    try:
+        process_document.delay(job_id, str(doc.id), file_ext)
+    except Exception:
+        # If Celery not configured, ignore and leave as pending
+        pass
+
     return CheckUploadResponse(
         job_id=job_id,
         status="pending",

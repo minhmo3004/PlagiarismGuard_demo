@@ -13,6 +13,8 @@ import tempfile
 import os
 import time
 
+from fastapi import HTTPException
+
 from app.services.preprocessing.vietnamese_nlp import preprocess_vietnamese
 from app.services.preprocessing.text_normalizer import normalize_text
 from app.services.algorithm.shingling import create_shingles
@@ -58,12 +60,13 @@ class PlagiarismChecker:
     
     def __init__(self, redis_client=None):
         self.redis_client = redis_client
+        # Initialize LSH index
         self.lsh_index = LSHIndex(
             threshold=settings.LSH_THRESHOLD,
             num_perm=settings.MINHASH_PERMUTATIONS
         )
         
-        # Load corpus nếu có Redis
+        # Load corpus from Redis
         if redis_client:
             self._load_corpus()
     
@@ -106,8 +109,32 @@ class PlagiarismChecker:
             return extract_text_from_pdf(file_path)
         elif ext == '.docx':
             from docx import Document
-            doc = Document(file_path)
-            return '\n'.join([para.text for para in doc.paragraphs])
+            try:
+                # Add delay to ensure file is fully written on Windows
+                import time
+                time.sleep(0.5)
+                
+                # Verify file exists and is readable
+                if not os.path.exists(file_path):
+                    raise FileNotFoundError(f"DOCX file not found: {file_path}")
+                
+                if os.path.getsize(file_path) == 0:
+                    raise ValueError("DOCX file is empty")
+                
+                doc = Document(file_path)
+                text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
+                
+                if not text.strip():
+                    raise ValueError("No text content found in DOCX file")
+                
+                return text
+                    
+            except Exception as e:
+                print(f"❌ Error reading DOCX file: {e}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot read DOCX file: {str(e)}. Please ensure the file is a valid Word document."
+                )
         else:
             with open(file_path, 'r', encoding='utf-8') as f:
                 return f.read()

@@ -54,10 +54,10 @@ curl http://localhost:8000/api/v1/plagiarism/corpus/stats
 ### Redis không start được
 ```bash
 # Install Redis (nếu chưa có)
-brew install redis
+docker-compose up -d redis
 
 # Start Redis manually
-redis-server --daemonize yes
+docker-compose up -d
 ```
 
 ### Port đã được sử dụng

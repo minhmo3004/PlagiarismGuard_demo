@@ -2,7 +2,14 @@
 File validation module
 Validates PDF files before processing
 """
-import magic
+import logging
+import mimetypes
+
+try:
+    import magic
+except Exception:
+    magic = None
+
 import fitz  # PyMuPDF
 from typing import Dict
 
@@ -49,19 +56,24 @@ def validate_pdf(file_path: str) -> Dict:
         "error": None
     }
     
-    # Check MIME type
-    try:
-        mime = magic.from_file(file_path, mime=True)
-        if mime != "application/pdf":
-            raise FileValidationError(f"File không phải PDF. Detected: {mime}")
-    except Exception as e:
-        raise FileValidationError(f"Không thể kiểm tra MIME type: {str(e)}")
-    
-    # Try to open PDF
+    # Try to open PDF first (PyMuPDF is reliable)
     try:
         doc = fitz.open(file_path)
     except Exception as e:
         raise FileValidationError(f"Không thể mở PDF: {str(e)}")
+
+    # If python-magic is available, validate MIME type as extra check
+    if magic:
+        try:
+            mime = magic.from_file(file_path, mime=True)
+            if mime != "application/pdf":
+                doc.close()
+                raise FileValidationError(f"File không phải PDF. Detected: {mime}")
+        except Exception as e:
+            doc.close()
+            raise FileValidationError(f"Không thể kiểm tra MIME type: {str(e)}")
+    else:
+        logging.warning("python-magic not available; skipping MIME type check. Install 'python-magic-bin' on Windows or 'libmagic' on Linux for strict checks.")
     
     # Check encrypted
     if doc.is_encrypted:

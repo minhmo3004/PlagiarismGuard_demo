@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Layout, Typography, Table, Button, Tag, Space, Popconfirm } from 'antd';
 import { EyeOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { getComparisonHistory, deleteComparison, type HistoryItem } from '../services/api';
+import { getComparisonHistory, deleteComparison, downloadHistoryFile, type HistoryItem } from '../services/api';
 import { EmptyState } from '../components/common/EmptyState';
 import { useToast } from '../hooks/useToast';
 
@@ -45,6 +45,19 @@ export const HistoryPage: React.FC = () => {
             loadHistory();
         } catch (err) {
             error('Không thể xóa');
+        }
+    };
+
+    const handleDownload = async (id: string, filename: string) => {
+        try {
+            await downloadHistoryFile(id, filename);
+            success('Đang tải file...');
+        } catch (err: any) {
+            if (err.response?.status === 404) {
+                error('File không còn tồn tại');
+            } else {
+                error('Không thể tải file');
+            }
         }
     };
 
@@ -101,6 +114,7 @@ export const HistoryPage: React.FC = () => {
                     <Button
                         type="link"
                         icon={<DownloadOutlined />}
+                        onClick={() => handleDownload(record.id, record.query_name)}
                     >
                         Tải
                     </Button>

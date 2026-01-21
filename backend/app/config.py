@@ -48,18 +48,18 @@ class Settings(BaseSettings):
     # MinHash/LSH Parameters
     MINHASH_SEED: int = 42
     MINHASH_PERMUTATIONS: int = 128
-    LSH_THRESHOLD: float = 0.4
+    LSH_THRESHOLD: float = 0.3  # Lowered from 0.4 for better matching
     LSH_BANDS: int = 32
     LSH_ROWS: int = 4
     SHINGLE_SIZE: int = 7
     
-    # OCR
-    OCR_TIMEOUT_SECONDS: int = 300
-    OCR_TIMEOUT_PER_PAGE: int = 30
-    MAX_PAGES_FOR_OCR: int = 100
+    # OCR Settings
+    OCR_TIMEOUT: int = 30  # seconds
+    TESSERACT_LANG: str = "vie+eng"
+    MAX_PAGES_FOR_OCR: int = 100 # Kept from original as it was not explicitly removed
     
     # Rate Limiting
-    RATE_LIMIT_FREE: str = "20/hour"
+    RATE_LIMIT_PER_MINUTE: str = "20/hour" # Corrected type and value based on context
     RATE_LIMIT_PREMIUM: str = "100/hour"
     
     class Config:

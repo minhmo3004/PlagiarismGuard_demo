@@ -97,8 +97,8 @@ docker-compose ps
 cd backend
 
 # Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv venv
+venv\Scripts\activate  # On IOS: source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -106,8 +106,6 @@ pip install -r requirements.txt
 # Copy environment file
 cp ../.env.example .env
 
-# Apply database migrations
-alembic upgrade head
 
 # Run backend
 uvicorn app.main:app --reload --port 8000

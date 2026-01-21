@@ -36,7 +36,7 @@ export const HomePage: React.FC = () => {
         <Layout>
             <Content style={{ padding: '50px' }}>
                 <div style={{ textAlign: 'center', marginBottom: 50 }}>
-                    <Title level={1}>PlagiarismGuard 2.0</Title>
+                    <Title level={1}>PlagiarismGuard </Title>
                     <Paragraph style={{ fontSize: 18, color: '#8c8c8c' }}>
                         Hệ thống phát hiện đạo văn thông minh với MinHash + LSH
                     </Paragraph>

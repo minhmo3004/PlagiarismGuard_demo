@@ -127,7 +127,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </ErrorBoundary>
 
             <Footer style={{ textAlign: 'center', background: '#f5f5f5' }}>
-                PlagiarismGuard 2.0 ©{new Date().getFullYear()} - MinHash + LSH Plagiarism Detection
+                PlagiarismGuard  ©{new Date().getFullYear()} - MinHash + LSH Plagiarism Detection
             </Footer>
         </Layout>
     );
