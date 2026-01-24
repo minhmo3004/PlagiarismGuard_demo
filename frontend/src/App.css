@@ -1,39 +1,51 @@
-/* App.css - Global styles for PlagiarismGuard 2.0 */
+/* App.css - Global styles cho toàn bộ ứng dụng PlagiarismGuard 2.0 */
 
+/* Reset mặc định và box-sizing toàn cục */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+/* Style cơ bản cho body */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased; /* Tăng độ mượt chữ trên WebKit */
+  -moz-osx-font-smoothing: grayscale;  /* Tăng độ mượt chữ trên Firefox macOS */
+  background: #f0f2f5; /* Nền nhẹ nhàng (có thể override ở layout nếu cần) */
 }
 
+/* Font cho code block (console, snippet, v.v.) */
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
 
-/* Layout */
+/* ────────────────────────────────────────────────────────────────────────────── */
+/* Layout chính */
+/* ────────────────────────────────────────────────────────────────────────────── */
+
+/* Container chính của ứng dụng (thường bọc trong App.js hoặc root) */
 .app-container {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
-/* Content */
+/* Wrapper cho phần nội dung chính (thường nằm giữa header và footer) */
 .content-wrapper {
-  flex: 1;
+  flex: 1;                    /* Chiếm hết không gian còn lại */
   padding: 24px;
-  background: #f5f5f5;
+  background: #f5f5f5;        /* Nền xám nhạt, tạo cảm giác sạch sẽ */
 }
 
-/* Animations */
+/* ────────────────────────────────────────────────────────────────────────────── */
+/* Animation đơn giản */
+/* ────────────────────────────────────────────────────────────────────────────── */
+
+/* Hiệu ứng fade-in nhẹ khi component xuất hiện */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -49,21 +61,27 @@ code {
   animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Utility classes */
+/* ────────────────────────────────────────────────────────────────────────────── */
+/* Utility classes (dùng inline hoặc className tiện lợi) */
+/* ────────────────────────────────────────────────────────────────────────────── */
+
 .text-center {
   text-align: center;
 }
 
+/* Margin top */
 .mt-1 { margin-top: 8px; }
 .mt-2 { margin-top: 16px; }
 .mt-3 { margin-top: 24px; }
 .mt-4 { margin-top: 32px; }
 
+/* Margin bottom */
 .mb-1 { margin-bottom: 8px; }
 .mb-2 { margin-bottom: 16px; }
 .mb-3 { margin-bottom: 24px; }
 .mb-4 { margin-bottom: 32px; }
 
+/* Padding */
 .p-1 { padding: 8px; }
 .p-2 { padding: 16px; }
 .p-3 { padding: 24px; }
