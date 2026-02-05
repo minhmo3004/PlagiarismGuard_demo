@@ -1,0 +1,11 @@
+Báo cáo thực tập kỹ thuật tại công ty XYZ Solutions
+
+Trong khoảng thời gian 3 tháng thực tập tại công ty XYZ Solutions, tôi đã được tham gia vào dự án phát triển ứng dụng quản lý nhân sự cho khách hàng doanh nghiệp.
+
+Công việc chính của tôi bao gồm thiết kế giao diện người dùng và viết unit test cho các API endpoints. Tôi sử dụng Vue.js cho frontend và Python FastAPI cho backend.
+
+Môi trường làm việc tại công ty rất chuyên nghiệp. Tôi được hướng dẫn quy trình code review và cách sử dụng Git để quản lý source code.
+
+Cuối đợt thực tập, tôi đã hoàn thành module quản lý nghỉ phép với đầy đủ tính năng CRUD và giao diện responsive. Dự án đã được đưa vào sử dụng và nhận được phản hồi tích cực từ khách hàng.
+
+Tôi xin chân thành cảm ơn ban lãnh đạo công ty đã tạo điều kiện cho tôi học hỏi và phát triển kỹ năng.

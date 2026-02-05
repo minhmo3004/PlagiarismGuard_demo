@@ -1,0 +1,10 @@
+Xử lý ngôn ngữ tự nhiên tiếng Việt có nhiều thách thức đặc thù cần giải quyết.
+Tách từ là bước quan trọng đầu tiên trong quy trình xử lý văn bản tiếng Việt.
+Các từ ghép như trí tuệ nhân tạo cần được giữ nguyên khi tokenize.
+BERT đa ngôn ngữ đã được fine-tune cho tiếng Việt với kết quả tốt.
+PhoBERT là mô hình được huấn luyện riêng cho tiếng Việt đạt hiệu quả cao.
+
+Chatbot và trợ lý ảo thông minh đang thay đổi cách doanh nghiệp tương tác với khách hàng.
+NLP cho phép chatbot hiểu và phản hồi ngôn ngữ tự nhiên của con người.
+Phân tích cảm xúc giúp doanh nghiệp hiểu được cảm xúc của khách hàng online.
+Dịch máy tự động đang ngày càng chính xác nhờ mô hình transformer.

@@ -111,14 +111,29 @@ export const useAuth = () => {
 
   /**
    * Hàm đăng ký tài khoản
-   * - Hiện tại chỉ mock (hiển thị thông báo và chuyển về login)
+   * - Hiện tại chỉ mock (lưu user và tự động đăng nhập)
    * - TODO: Thay bằng gọi API register thực tế (POST /register)
    */
   const register = useCallback(async (email: string, password: string, name: string) => {
     try {
       // TODO: Thay bằng gọi API đăng ký thực tế
-      showSuccess('Đăng ký thành công', 'Vui lòng đăng nhập');
-      navigate('/login');
+      // Tạo user với họ tên được nhập
+      const newUser: User = {
+        id: Date.now().toString(),
+        email,
+        name: name || email.split('@')[0], // Ưu tiên dùng name, fallback về email
+      };
+
+      const mockToken = 'mock-jwt-token-' + Date.now();
+
+      // Lưu vào localStorage
+      localStorage.setItem('auth_token', mockToken);
+      localStorage.setItem('user', JSON.stringify(newUser));
+
+      // Cập nhật state và chuyển về trang chủ
+      setAuthState({ user: newUser, isAuthenticated: true, isLoading: false });
+      showSuccess('Đăng ký thành công', `Chào mừng ${name}!`);
+      navigate('/');
       return true;
     } catch (error: any) {
       showError('Đăng ký thất bại', error.message);

@@ -1,0 +1,95 @@
+ĐẠI HỌC CÔNG NGHỆ TP.HCM
+KHOA KHOA HỌC MÁY TÍNH
+
+---
+
+BÁO CÁO ĐỒ ÁN
+ỨNG DỤNG DEEP LEARNING TRONG NHẬN DẠNG KHUÔN MẶT
+
+Nhóm sinh viên:
+- Nguyễn Văn I (Nhóm trưởng)
+- Trần Thị K
+- Lê Văn L
+
+Giảng viên: PGS.TS. Phạm Văn M
+
+TP. Hồ Chí Minh, 2023
+
+---
+
+CHƯƠNG 1: GIỚI THIỆU
+
+1.1 Bối cảnh
+
+Nhận dạng khuôn mặt là một trong những ứng dụng quan trọng nhất của Computer Vision. Công nghệ này được sử dụng rộng rãi trong:
+- Bảo mật: Mở khóa điện thoại, kiểm soát ra vào
+- Thanh toán: Face payment
+- Giám sát: Camera an ninh thông minh
+
+1.2 Thách thức
+
+Nhận dạng khuôn mặt gặp nhiều thách thức:
+- Thay đổi góc nhìn
+- Điều kiện ánh sáng khác nhau
+- Biểu cảm khuôn mặt
+- Che khuất một phần (khẩu trang, kính)
+
+CHƯƠNG 2: CÔNG NGHỆ DEEP LEARNING
+
+2.1 Convolutional Neural Network
+
+CNN là kiến trúc mạng nơ-ron chuyên xử lý hình ảnh, gồm các lớp:
+- Convolutional layer: Trích xuất features
+- Pooling layer: Giảm kích thước
+- Fully connected layer: Phân loại
+
+2.2 Face Recognition Models
+
+FaceNet: Sử dụng triplet loss để học face embedding
+- Anchor: Ảnh gốc
+- Positive: Cùng người
+- Negative: Người khác
+
+ArcFace: Cải tiến softmax loss với additive angular margin, đạt accuracy cao hơn.
+
+2.3 Face Detection
+
+MTCNN (Multi-task Cascaded CNN) phát hiện khuôn mặt qua 3 stage:
+- P-Net: Proposal network
+- R-Net: Refine network  
+- O-Net: Output network
+
+CHƯƠNG 3: TRIỂN KHAI HỆ THỐNG
+
+3.1 Dataset
+
+Sử dụng VGGFace2 với 3.31 triệu ảnh của 9131 người. Augmentation data bằng cách:
+- Flip ngang
+- Xoay ±15 độ
+- Thay đổi độ sáng
+
+3.2 Training
+
+Model: ResNet-50 backbone + ArcFace loss
+- Optimizer: SGD với momentum 0.9
+- Learning rate: 0.1, giảm dần
+- Batch size: 128
+- Epochs: 100
+
+3.3 Kết quả
+
+Trên LFW (Labeled Faces in the Wild) benchmark:
+- Accuracy: 99.2%
+- Inference time: 50ms/image
+- Model size: 85MB
+
+CHƯƠNG 4: ỨNG DỤNG THỰC TẾ
+
+Xây dựng app điểm danh tự động cho lớp học:
+- Sinh viên đứng trước camera
+- Hệ thống tự động nhận diện và điểm danh
+- Lưu log vào database
+
+KẾT LUẬN
+
+Đồ án đã xây dựng thành công hệ thống nhận dạng khuôn mặt với độ chính xác cao, có thể ứng dụng thực tế.

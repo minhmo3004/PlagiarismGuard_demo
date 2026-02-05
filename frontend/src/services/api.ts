@@ -75,6 +75,15 @@ export interface HistoryItem {
   created_at: string;
 }
 
+export interface MatchedSegment {
+  query_text: string;
+  query_start: number;
+  query_end: number;
+  source_text: string;
+  source_start: number;
+  source_end: number;
+}
+
 export interface PlagiarismCheckResult {
   filename: string;
   is_plagiarized: boolean;
@@ -89,6 +98,7 @@ export interface PlagiarismCheckResult {
     university: string;
     year: number | null;
     similarity: number;
+    matched_segments: MatchedSegment[];
   }>;
 }
 

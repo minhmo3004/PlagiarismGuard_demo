@@ -23,8 +23,9 @@ class BaseCrawler(ABC):
         self.max_retries = max_retries
         self.timeout = timeout
         self.session = requests.Session()
+        # Use proper User-Agent for Wikipedia API
         self.session.headers.update({
-            'User-Agent': self._get_random_user_agent()
+            'User-Agent': 'PlagiarismGuard/2.0 (Educational Research; Contact: github.com/plagiarismguard) python-requests/2.31'
         })
         self.docs_crawled = 0
         

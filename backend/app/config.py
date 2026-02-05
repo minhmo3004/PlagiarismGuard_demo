@@ -34,12 +34,13 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     
-    # S3/MinIO
-    S3_ENDPOINT: Optional[str] = None
-    S3_ACCESS_KEY: str
-    S3_SECRET_KEY: str
-    S3_BUCKET: str = "plagiarism-files"
-    S3_REGION: str = "us-east-1"
+    # MinIO Configuration
+    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_ACCESS_KEY: str = "minioadmin"
+    MINIO_SECRET_KEY: str = "minioadmin"
+    MINIO_BUCKET_UPLOADS: str = "plagiarism-uploads"
+    MINIO_BUCKET_CORPUS: str = "plagiarism-corpus"
+    MINIO_SECURE: bool = False
     
     # File Upload
     MAX_UPLOAD_SIZE: int = 20 * 1024 * 1024  # 20MB

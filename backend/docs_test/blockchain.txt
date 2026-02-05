@@ -1,0 +1,10 @@
+Công nghệ blockchain đang thay đổi cách thức thanh toán điện tử trên toàn cầu.
+Bitcoin và Ethereum là hai đồng tiền điện tử phổ biến nhất hiện nay.
+Smart contract cho phép tự động hóa các giao dịch tài chính phức tạp.
+Tính phi tập trung của blockchain giúp giảm chi phí trung gian trong thanh toán.
+Các ngân hàng đang nghiên cứu ứng dụng blockchain vào hệ thống thanh toán quốc tế.
+
+Blockchain không chỉ dùng cho tiền điện tử mà còn được ứng dụng trong nhiều lĩnh vực khác.
+Chuỗi cung ứng sử dụng blockchain để theo dõi nguồn gốc sản phẩm.
+Bất động sản có thể giao dịch nhanh chóng và minh bạch hơn nhờ blockchain.
+Hợp đồng thông minh tự động thực thi khi điều kiện được đáp ứng.

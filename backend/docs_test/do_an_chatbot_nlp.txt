@@ -1,0 +1,74 @@
+ĐẠI HỌC FPT
+KHOA CÔNG NGHỆ THÔNG TIN
+
+---
+
+ĐỒ ÁN CHUYÊN NGÀNH
+XÂY DỰNG CHATBOT HỖ TRỢ KHÁCH HÀNG SỬ DỤNG NLP
+
+Sinh viên: Hoàng Văn E
+MSSV: SE140123
+Giảng viên: ThS. Nguyễn Thị F
+
+Hà Nội, 2023
+
+---
+
+CHƯƠNG 1: GIỚI THIỆU ĐỀ TÀI
+
+1.1 Lý do chọn đề tài
+
+Trong thời đại số hóa, dịch vụ khách hàng 24/7 là yêu cầu thiết yếu của mọi doanh nghiệp. Chatbot AI giúp tự động hóa việc trả lời câu hỏi thường gặp, giảm tải cho nhân viên.
+
+Natural Language Processing (NLP) cho phép chatbot hiểu ngôn ngữ tự nhiên của con người, không chỉ đơn thuần khớp từ khóa.
+
+1.2 Phạm vi đề tài
+
+Xây dựng chatbot cho lĩnh vực thương mại điện tử với khả năng:
+- Trả lời câu hỏi về sản phẩm
+- Hỗ trợ đặt hàng
+- Xử lý khiếu nại
+
+CHƯƠNG 2: CƠ SỞ LÝ THUYẾT
+
+2.1 Natural Language Processing
+
+NLP là nhánh của AI xử lý ngôn ngữ tự nhiên. Các bước xử lý cơ bản:
+- Tokenization: Tách câu thành từ
+- POS Tagging: Gán nhãn từ loại
+- Named Entity Recognition: Nhận dạng thực thể
+- Intent Classification: Phân loại ý định
+
+2.2 Transformer và BERT
+
+BERT (Bidirectional Encoder Representations from Transformers) là mô hình ngôn ngữ tiên tiến, hiểu ngữ cảnh hai chiều của câu.
+
+PhoBERT là phiên bản BERT được huấn luyện riêng cho tiếng Việt, đạt hiệu quả cao trong các tác vụ NLP tiếng Việt.
+
+CHƯƠNG 3: PHÂN TÍCH VÀ THIẾT KẾ
+
+3.1 Yêu cầu chức năng
+
+- Nhận diện intent từ câu hỏi người dùng
+- Trích xuất entity (tên sản phẩm, số lượng, giá)
+- Sinh câu trả lời tự nhiên
+- Lưu lịch sử hội thoại
+
+3.2 Kiến trúc hệ thống
+
+Chatbot gồm 3 module:
+- NLU (Natural Language Understanding): Hiểu ý định
+- Dialog Manager: Quản lý luồng hội thoại
+- NLG (Natural Language Generation): Sinh câu trả lời
+
+3.3 Dataset
+
+Thu thập 5000 câu hỏi thực tế từ khách hàng, gán nhãn 15 intent khác nhau.
+
+CHƯƠNG 4: TRIỂN KHAI
+
+Sử dụng Rasa framework để xây dựng chatbot. Model đạt accuracy 87% trên test set.
+
+KẾT LUẬN
+
+Đồ án đã xây dựng thành công chatbot NLP với khả năng hiểu và trả lời câu hỏi tiếng Việt tự nhiên.

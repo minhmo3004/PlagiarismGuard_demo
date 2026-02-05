@@ -163,6 +163,50 @@ Frontend will be available at http://localhost:3000
 
 **Total: 64 files created**
 
+## 📚 Corpus Management
+
+### Wikipedia Crawler
+
+Automatically crawl Vietnamese Wikipedia to expand corpus:
+
+```bash
+# Crawl 100 random articles
+docker exec plagiarism-backend python scripts/crawl_wiki_import.py --random 100
+
+# Crawl from tech categories (AI, CS, IT, etc.)
+docker exec plagiarism-backend python scripts/crawl_wiki_import.py --tech-categories 50
+
+# Crawl specific category
+docker exec plagiarism-backend python scripts/crawl_wiki_import.py \
+    --category "Khoa_học_máy_tính" --limit 50
+
+# Crawl and sync to Redis immediately
+docker exec plagiarism-backend python scripts/crawl_wiki_import.py \
+    --random 200 --sync-redis
+```
+
+**Features:**
+- ✅ Random article crawling
+- ✅ Category-based targeting (8 tech categories)
+- ✅ Quality filtering (50+ words minimum)
+- ✅ Vietnamese text cleaning
+- ✅ Auto-import to database
+- ✅ Redis LSH sync
+
+### Verify Corpus
+
+```bash
+# Check corpus statistics
+docker exec plagiarism-backend python scripts/verify_corpus.py
+
+# Check Wikipedia articles count
+docker exec plagiarism-backend python scripts/check_wiki_corpus.py
+```
+
+**Documentation:**
+- [`backend/scripts/WIKIPEDIA_CRAWLER.md`](backend/scripts/WIKIPEDIA_CRAWLER.md) - Full crawler guide
+- [`DATA_GUIDE.md`](DATA_GUIDE.md) - General corpus management
+
 ## 🧪 Testing
 
 ```bash

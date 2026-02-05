@@ -145,14 +145,14 @@ export const ResultPage: React.FC = () => {
             <List
               dataSource={result.matches}
               renderItem={(match, index) => (
-                <List.Item>
+                <List.Item style={{ display: 'block' }}>
                   <List.Item.Meta
                     avatar={
                       <Tag
                         color={match.similarity >= 70 ? 'red' : match.similarity >= 40 ? 'orange' : 'green'}
                         style={{ width: 60, textAlign: 'center' }}
                       >
-                        {match.similarity}%
+                        {match.similarity.toFixed(2)}%
                       </Tag>
                     }
                     title={match.title}
@@ -165,6 +165,68 @@ export const ResultPage: React.FC = () => {
                       </div>
                     }
                   />
+
+                  {/* Hiển thị matched segments nếu có */}
+                  {match.matched_segments && match.matched_segments.length > 0 && (
+                    <div style={{ marginTop: 12, marginLeft: 70 }}>
+                      <details style={{ cursor: 'pointer' }}>
+                        <summary style={{ color: '#1890ff', marginBottom: 8 }}>
+                          Xem {match.matched_segments.length} đoạn trùng khớp
+                        </summary>
+                        <div style={{
+                          background: '#fafafa',
+                          padding: 16,
+                          borderRadius: 8,
+                          maxHeight: 300,
+                          overflowY: 'auto'
+                        }}>
+                          {match.matched_segments.map((seg, segIdx) => (
+                            <div key={segIdx} style={{
+                              marginBottom: 16,
+                              padding: 12,
+                              background: 'white',
+                              borderRadius: 6,
+                              border: '1px solid #f0f0f0'
+                            }}>
+                              <div style={{ marginBottom: 8 }}>
+                                <Tag color="blue" style={{ marginBottom: 4 }}>Đoạn {segIdx + 1}</Tag>
+                              </div>
+                              <div style={{ display: 'flex', gap: 16 }}>
+                                <div style={{ flex: 1 }}>
+                                  <Text strong style={{ color: '#ff4d4f', display: 'block', marginBottom: 4 }}>
+                                    File của bạn:
+                                  </Text>
+                                  <Text style={{
+                                    background: '#fff2f0',
+                                    padding: '4px 8px',
+                                    borderRadius: 4,
+                                    display: 'block',
+                                    fontSize: 13
+                                  }}>
+                                    "{seg.query_text}"
+                                  </Text>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <Text strong style={{ color: '#52c41a', display: 'block', marginBottom: 4 }}>
+                                    Nguồn trùng khớp:
+                                  </Text>
+                                  <Text style={{
+                                    background: '#f6ffed',
+                                    padding: '4px 8px',
+                                    borderRadius: 4,
+                                    display: 'block',
+                                    fontSize: 13
+                                  }}>
+                                    "{seg.source_text}"
+                                  </Text>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  )}
                 </List.Item>
               )}
             />

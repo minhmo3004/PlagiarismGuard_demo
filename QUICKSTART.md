@@ -2,21 +2,25 @@
 
 ## 🚀 Cách sử dụng
 
-### Chỉ cần 1 bước: Click để chạy!
-**Double-click vào file `start.sh`** hoặc:
+### Bước 1: Khởi động Docker
 ```bash
-./start.sh
+docker-compose up -d
 ```
 
-Script sẽ tự động:
-- ✅ Start Redis (nếu chưa chạy)
-- ✅ Start Backend (port 8000)
-- ✅ Start Frontend (port 3000)
-- ✅ Mở browser tự động
-- ✅ Hiển thị corpus stats
+### Bước 2: Setup Corpus (chỉ chạy 1 lần khi deploy máy mới)
+```bash
+./scripts/setup-corpus.sh
+```
+Script sẽ tự động crawl ~1000 tài liệu:
+- 500 bài Wikipedia tiếng Việt random
+- 300 bài Wikipedia tech categories (AI, ML, IT...)
+- 200 papers ArXiv (AI, ML, CV, NLP, Security)
 
-### Dừng server
-Nhấn **Ctrl+C** trong terminal
+⏱️ **Thời gian:** ~15-20 phút
+
+### Bước 3: Mở ứng dụng
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:8000
 
 ---
 
@@ -44,7 +48,7 @@ Upload các file này để test phát hiện đạo văn!
 ## 📊 Check Corpus
 
 ```bash
-curl http://localhost:8000/api/v1/plagiarism/corpus/stats
+./scripts/wiki-corpus.sh check
 ```
 
 ---

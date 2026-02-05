@@ -95,13 +95,13 @@ export const HistoryPage: React.FC = () => {
    * - ≥ 60%   → đỏ (Cao)
    */
   const getSimilarityTag = (similarity: number) => {
-    if (similarity < 0.3) {
-      return <Tag color="success">Thấp ({Math.round(similarity * 100)}%)</Tag>;
+    if (similarity < 30) {
+      return <Tag color="success">Thấp ({similarity.toFixed(2)}%)</Tag>;
     }
-    if (similarity < 0.6) {
-      return <Tag color="warning">Trung bình ({Math.round(similarity * 100)}%)</Tag>;
+    if (similarity < 60) {
+      return <Tag color="warning">Trung bình ({similarity.toFixed(2)}%)</Tag>;
     }
-    return <Tag color="error">Cao ({Math.round(similarity * 100)}%)</Tag>;
+    return <Tag color="error">Cao ({similarity.toFixed(2)}%)</Tag>;
   };
 
   // Cấu hình cột cho Table

@@ -1,0 +1,9 @@
+Đề tài nghiên cứu về ứng dụng blockchain trong quản lý chuỗi cung ứng đã được thực hiện tại trường Đại học FPT. Mục tiêu là xây dựng một hệ thống minh bạch và có thể truy xuất nguồn gốc.
+
+Phương pháp nghiên cứu được sử dụng trong bài viết này bao gồm: phân tích tài liệu, thực nghiệm và đánh giá kết quả.
+
+Hệ thống smart contract được triển khai trên nền tảng Ethereum với các tính năng tự động xác thực giao dịch. Mỗi bước trong chuỗi cung ứng đều được ghi nhận immutable trên blockchain.
+
+Kết quả thử nghiệm cho thấy hệ thống có thể xử lý hàng nghìn giao dịch mỗi giờ với độ trễ chấp nhận được. Chi phí gas đã được tối ưu thông qua việc sử dụng layer 2 solutions.
+
+Ứng dụng thực tế đã được triển khai cho một doanh nghiệp xuất khẩu nông sản với kết quả rất khả quan.

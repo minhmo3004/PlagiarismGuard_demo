@@ -17,10 +17,12 @@ from fastapi import HTTPException
 
 from app.services.preprocessing.vietnamese_nlp import preprocess_vietnamese
 from app.services.preprocessing.text_normalizer import normalize_text
-from app.services.algorithm.shingling import create_shingles
+from app.services.algorithm.shingling import create_shingles, find_common_shingles
 from app.services.algorithm.minhash import create_minhash_signature, estimate_jaccard
 from app.services.algorithm.lsh_index import LSHIndex
 from app.config import settings
+from app.db.database import SessionLocal
+from app.db.models import Document
 
 
 @dataclass
@@ -34,14 +36,26 @@ class ComparisonResult:
 
 
 @dataclass
+class MatchedSegment:
+    """Một đoạn text trùng khớp cụ thể"""
+    query_text: str
+    query_start: int
+    query_end: int
+    source_text: str
+    source_start: int
+    source_end: int
+
+
+@dataclass
 class CorpusMatch:
-    """Một document match từ corpus"""
+    """Một document match từ corpus với chi tiết các đoạn trùng khớp"""
     doc_id: str
     title: str
     author: str
     university: str
     similarity: float
     year: Optional[int] = None
+    matched_segments: Optional[List[MatchedSegment]] = None
 
 
 @dataclass  
@@ -99,6 +113,69 @@ class PlagiarismChecker:
             print(f"✅ Loaded {loaded} documents into LSH index")
         except Exception as e:
             print(f"⚠️ Could not load corpus: {e}")
+    
+    def _get_text_from_postgres(self, doc_id: str, pg_id: str = None) -> str:
+        """
+        Query document text from PostgreSQL instead of Redis.
+        This saves RAM as Redis runs in memory.
+        
+        Args:
+            doc_id: Short document ID (8 chars from UUID)
+            pg_id: Full PostgreSQL UUID if available from Redis metadata
+        
+        Returns:
+            Extracted text from document or None if not found
+        """
+        try:
+            db = SessionLocal()
+            try:
+                import uuid as uuid_module
+                doc = None
+                
+                # Method 1: Try pg_id (full UUID from Redis metadata)
+                if pg_id:
+                    try:
+                        full_uuid = uuid_module.UUID(pg_id)
+                        doc = db.query(Document).filter(Document.id == full_uuid).first()
+                    except (ValueError, AttributeError):
+                        pass
+                
+                # Method 2: Try padded UUID (doc_id + zeros)
+                if not doc:
+                    full_uuid_str = doc_id + '0' * (32 - len(doc_id))
+                    try:
+                        full_uuid = uuid_module.UUID(full_uuid_str)
+                        doc = db.query(Document).filter(Document.id == full_uuid).first()
+                    except ValueError:
+                        pass
+                
+                # Method 3: Search by ID prefix using string cast
+                if not doc:
+                    from sqlalchemy import cast, String
+                    doc = db.query(Document).filter(
+                        Document.is_corpus == 1,
+                        Document.extracted_text.isnot(None),
+                        cast(Document.id, String).like(f"{doc_id}%")
+                    ).first()
+                
+                # Method 4: Fallback - search any corpus doc with matching hash prefix
+                if not doc:
+                    doc = db.query(Document).filter(
+                        Document.is_corpus == 1,
+                        Document.extracted_text.isnot(None)
+                    ).filter(
+                        Document.file_hash_sha256.like(f"{doc_id}%")
+                    ).first()
+                
+                if doc and doc.extracted_text:
+                    return doc.extracted_text
+                    
+                return None
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"⚠️ Error querying PostgreSQL for doc {doc_id}: {e}")
+            return None
     
     def _extract_text(self, file_path: str, filename: str) -> str:
         """Extract text từ file"""
@@ -228,7 +305,7 @@ class PlagiarismChecker:
             filename: Name of file
         
         Returns:
-            PlagiarismResult với matches từ corpus
+            PlagiarismResult với matches từ corpus (bao gồm chi tiết từng đoạn trùng khớp)
         """
         start_time = time.time()
         
@@ -239,18 +316,45 @@ class PlagiarismChecker:
         # Query LSH index
         candidates = self.lsh_index.query(minhash, top_k=20)
         
-        # Build matches list
+        # Build matches list với matched segments
         matches = []
         for doc_id, similarity in candidates:
             if similarity >= 0.2:  # Minimum 20% similarity
                 # Get metadata from Redis
+                metadata = {}
+                source_text = None
+                pg_id = None
+                
                 if self.redis_client:
-                    key = f"doc:meta:{doc_id}"
-                    metadata = self.redis_client.hgetall(key)
-                    if isinstance(list(metadata.keys())[0] if metadata else b'', bytes):
+                    # Get metadata from Redis (fast, lightweight)
+                    meta_key = f"doc:meta:{doc_id}"
+                    metadata = self.redis_client.hgetall(meta_key)
+                    if metadata and isinstance(list(metadata.keys())[0], bytes):
                         metadata = {k.decode(): v.decode() for k, v in metadata.items()}
-                else:
-                    metadata = {}
+                    
+                    # Get pg_id for PostgreSQL lookup
+                    pg_id = metadata.get('pg_id')
+                
+                # Get source text from PostgreSQL (not Redis - saves RAM)
+                # Query by pg_id or doc_id pattern matching in documents table
+                source_text = self._get_text_from_postgres(doc_id, pg_id)
+                
+                # Find matched segments if source text available
+                matched_segments = []
+                if source_text:
+                    source_tokens = preprocess_vietnamese(normalize_text(source_text))
+                    segments_data = find_common_shingles(tokens, source_tokens, k=settings.SHINGLE_SIZE)
+                    
+                    # Limit to top 10 segments per match
+                    for seg in segments_data[:10]:
+                        matched_segments.append(MatchedSegment(
+                            query_text=seg["query_text"],
+                            query_start=seg["query_start"],
+                            query_end=seg["query_end"],
+                            source_text=seg["source_text"],
+                            source_start=seg["source_start"],
+                            source_end=seg["source_end"]
+                        ))
                 
                 matches.append(CorpusMatch(
                     doc_id=doc_id,
@@ -258,7 +362,8 @@ class PlagiarismChecker:
                     author=metadata.get('author', 'Unknown'),
                     university=metadata.get('university', 'Unknown'),
                     year=int(metadata.get('year', 0)) or None,
-                    similarity=similarity
+                    similarity=similarity,
+                    matched_segments=matched_segments if matched_segments else None
                 ))
         
         # Sort by similarity
