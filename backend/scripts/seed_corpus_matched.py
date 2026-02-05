@@ -464,11 +464,335 @@ def sync_postgres_to_redis():
     logger.info(f"✅ Synced {synced} documents to Redis LSH index")
 
 
+def sync_corpus_to_minio():
+    """Sync corpus documents from PostgreSQL to MinIO for viewing"""
+    logger.info("Syncing corpus to MinIO storage...")
+    
+    try:
+        from app.services.minio_storage import get_minio_storage
+    except ImportError as e:
+        logger.error(f"Cannot import MinIO storage: {e}")
+        return
+    
+    # Connect
+    try:
+        minio = get_minio_storage()
+        if not minio.is_available():
+            logger.error("MinIO is not available")
+            return
+        
+        db = SessionLocal()
+        logger.info("✅ Connected to MinIO and PostgreSQL")
+    except Exception as e:
+        logger.error(f"Connection error: {e}")
+        return
+    
+    # Get all corpus documents
+    docs = db.query(Document).filter(
+        Document.is_corpus == 1,
+        Document.extracted_text.isnot(None)
+    ).all()
+    
+    logger.info(f"Found {len(docs)} corpus documents to sync to MinIO")
+    
+    uploaded = 0
+    for doc in docs:
+        try:
+            result = minio.upload_corpus_document(
+                doc_id=str(doc.id),
+                title=doc.title or f"Document {doc.id}",
+                text=doc.extracted_text,
+                author=doc.author or "Unknown",
+                university=doc.university or "Unknown",
+                year=doc.year or 2024
+            )
+            
+            if result:
+                # Update s3_path in database
+                doc.s3_path = result
+                uploaded += 1
+            
+            if uploaded % 200 == 0:
+                db.commit()
+                logger.info(f"Uploaded {uploaded}/{len(docs)} documents to MinIO")
+                
+        except Exception as e:
+            logger.warning(f"Error uploading doc {doc.id}: {e}")
+    
+    db.commit()
+    db.close()
+    logger.info(f"✅ Uploaded {uploaded} documents to MinIO (bucket: corpus)")
+
+
+def crawl_wikipedia(num_articles: int):
+    """Crawl Wikipedia articles"""
+    import subprocess
+    logger.info(f"📖 Crawling {num_articles} Wikipedia articles...")
+    try:
+        result = subprocess.run(
+            ["python", "scripts/crawl_wiki_import.py", "--random", str(num_articles)],
+            capture_output=True,
+            text=True,
+            timeout=600  # 10 minutes timeout
+        )
+        if result.returncode == 0:
+            logger.info(f"✅ Wikipedia crawl completed")
+        else:
+            logger.warning(f"Wikipedia crawl warning: {result.stderr}")
+    except subprocess.TimeoutExpired:
+        logger.warning("Wikipedia crawl timed out")
+    except Exception as e:
+        logger.error(f"Wikipedia crawl error: {e}")
+
+
+def crawl_arxiv(num_ai: int = 0, num_ml: int = 0):
+    """Crawl ArXiv papers"""
+    import subprocess
+    
+    if num_ai > 0:
+        logger.info(f"📚 Crawling {num_ai} ArXiv AI papers...")
+        try:
+            result = subprocess.run(
+                ["python", "scripts/crawl_arxiv_import.py", "--ai", str(num_ai)],
+                capture_output=True,
+                text=True,
+                timeout=600
+            )
+            if result.returncode == 0:
+                logger.info(f"✅ ArXiv AI crawl completed")
+            else:
+                logger.warning(f"ArXiv AI crawl warning: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.warning("ArXiv AI crawl timed out")
+        except Exception as e:
+            logger.error(f"ArXiv AI crawl error: {e}")
+    
+    if num_ml > 0:
+        logger.info(f"📚 Crawling {num_ml} ArXiv ML papers...")
+        try:
+            result = subprocess.run(
+                ["python", "scripts/crawl_arxiv_import.py", "--ml", str(num_ml)],
+                capture_output=True,
+                text=True,
+                timeout=600
+            )
+            if result.returncode == 0:
+                logger.info(f"✅ ArXiv ML crawl completed")
+            else:
+                logger.warning(f"ArXiv ML crawl warning: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.warning("ArXiv ML crawl timed out")
+        except Exception as e:
+            logger.error(f"ArXiv ML crawl error: {e}")
+
+
+def full_setup(synthetic: int, wiki: int, arxiv_ai: int, arxiv_ml: int, sync_minio: bool):
+    """Full corpus setup from all sources"""
+    logger.info("=" * 60)
+    logger.info("🚀 FULL CORPUS SETUP")
+    logger.info("=" * 60)
+    logger.info(f"   Synthetic: {synthetic} docs")
+    logger.info(f"   Wikipedia: {wiki} articles")
+    logger.info(f"   ArXiv AI:  {arxiv_ai} papers")
+    logger.info(f"   ArXiv ML:  {arxiv_ml} papers")
+    logger.info("=" * 60)
+    
+    results = {
+        "synthetic": 0,
+        "wiki": 0,
+        "arxiv_ai": arxiv_ai,
+        "arxiv_ml": arxiv_ml,
+    }
+    
+    step = 1
+    
+    # 1. Seed synthetic corpus
+    if synthetic > 0:
+        logger.info(f"\n📝 Step {step}: Seeding {synthetic} synthetic docs...")
+        step += 1
+        stats = seed_corpus(synthetic, sync_redis=False)
+        if stats:
+            results["synthetic"] = stats.get("success", 0)
+    
+    # 2. Crawl Wikipedia
+    if wiki > 0:
+        logger.info(f"\n📖 Step {step}: Crawling {wiki} Wikipedia articles...")
+        step += 1
+        crawl_wikipedia(wiki)
+        results["wiki"] = wiki
+    
+    # 3. Crawl ArXiv
+    if arxiv_ai > 0 or arxiv_ml > 0:
+        logger.info(f"\n📚 Step {step}: Crawling ArXiv papers...")
+        step += 1
+        crawl_arxiv(arxiv_ai, arxiv_ml)
+    
+    # 4. Sync to Redis
+    logger.info(f"\n📤 Step {step}: Syncing corpus to Redis LSH index...")
+    step += 1
+    sync_postgres_to_redis()
+    
+    # 5. Sync to MinIO if requested
+    if sync_minio:
+        logger.info(f"\n📤 Step {step}: Syncing corpus to MinIO...")
+        sync_corpus_to_minio()
+    
+    # Get final count
+    try:
+        db = SessionLocal()
+        total = db.query(Document).filter(Document.is_corpus == 1).count()
+        db.close()
+    except Exception as e:
+        logger.warning(f"Could not get total count: {e}")
+        total = "?"
+    
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("✅ CORPUS SETUP COMPLETE")
+    logger.info(f"   Synthetic: {results['synthetic']} docs")
+    logger.info(f"   Wikipedia: {results['wiki']} articles")
+    logger.info(f"   ArXiv AI:  {results['arxiv_ai']} papers")
+    logger.info(f"   ArXiv ML:  {results['arxiv_ml']} papers")
+    logger.info(f"   Synced to Redis: ✅")
+    logger.info(f"   MinIO upload: {'✅' if sync_minio else '❌ (skip)'}")
+    logger.info(f"   Total in corpus: {total} docs")
+    logger.info("=" * 60)
+    logger.info("")
+    logger.info("💡 Now restart backend to load corpus into memory:")
+    logger.info("   docker restart plagiarism-backend")
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Seed corpus with documents matching docs_test/")
-    parser.add_argument("--num-docs", type=int, default=3000, help="Number of documents to generate")
-    parser.add_argument("--sync-redis", action="store_true", help="Also sync to Redis after seeding")
+    parser = argparse.ArgumentParser(
+        description="Seed corpus with documents from multiple sources",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Quick setup (~660 docs)
+  python scripts/seed_corpus_matched.py --quick
+  
+  # Default setup (~3,600 docs)
+  python scripts/seed_corpus_matched.py
+  
+  # Full setup (~6,200 docs)
+  python scripts/seed_corpus_matched.py --full
+  
+  # Custom synthetic only
+  python scripts/seed_corpus_matched.py --synthetic 500
+  
+  # Custom with all sources
+  python scripts/seed_corpus_matched.py --synthetic 1000 --wiki 500 --arxiv-ai 100 --arxiv-ml 100
+  
+  # Sync only (no seeding)
+  python scripts/seed_corpus_matched.py --sync-only
+  
+  # With MinIO upload
+  python scripts/seed_corpus_matched.py --quick --sync-minio
+"""
+    )
+    
+    # Preset modes (mutually exclusive)
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument("--quick", action="store_true", 
+                           help="Quick setup (~660 docs): 200 synthetic + 300 wiki + 160 arxiv")
+    mode_group.add_argument("--full", action="store_true", 
+                           help="Full setup (~6,200 docs): 3000 synthetic + 2000 wiki + 1200 arxiv")
+    mode_group.add_argument("--sync-only", action="store_true", 
+                           help="Only sync existing corpus to Redis (no seeding)")
+    
+    # Custom options (override preset defaults)
+    custom_group = parser.add_argument_group('Custom options (override preset defaults)')
+    custom_group.add_argument("--synthetic", type=int, default=None, 
+                             help="Number of synthetic docs to generate")
+    custom_group.add_argument("--wiki", type=int, default=None, 
+                             help="Number of Wikipedia articles to crawl")
+    custom_group.add_argument("--arxiv-ai", type=int, default=None, 
+                             help="Number of ArXiv AI papers to crawl")
+    custom_group.add_argument("--arxiv-ml", type=int, default=None, 
+                             help="Number of ArXiv ML papers to crawl")
+    
+    # Legacy option (for backward compatibility)
+    custom_group.add_argument("--num-docs", type=int, default=None, 
+                             help="(Legacy) Only seed N synthetic docs, no crawl")
+    
+    # Sync options
+    sync_group = parser.add_argument_group('Sync options')
+    sync_group.add_argument("--sync-redis", action="store_true", 
+                           help="(Legacy) Sync to Redis after seeding")
+    sync_group.add_argument("--sync-minio", action="store_true", 
+                           help="Also sync corpus to MinIO for viewing")
     
     args = parser.parse_args()
     
-    seed_corpus(args.num_docs, args.sync_redis)
+    # ============================================================
+    # HANDLE DIFFERENT MODES
+    # ============================================================
+    
+    # Mode 1: Sync only (no seeding)
+    if args.sync_only:
+        logger.info("=" * 60)
+        logger.info("📤 SYNC ONLY MODE")
+        logger.info("=" * 60)
+        sync_postgres_to_redis()
+        if args.sync_minio:
+            sync_corpus_to_minio()
+        sys.exit(0)
+    
+    # Mode 2: Legacy --num-docs (backward compatibility)
+    if args.num_docs is not None:
+        logger.info("=" * 60)
+        logger.info("📝 LEGACY MODE: Synthetic only")
+        logger.info("=" * 60)
+        seed_corpus(args.num_docs, sync_redis=args.sync_redis)
+        if args.sync_minio:
+            sync_corpus_to_minio()
+        sys.exit(0)
+    
+    # Mode 3: Custom sources specified
+    has_custom = any([
+        args.synthetic is not None,
+        args.wiki is not None, 
+        args.arxiv_ai is not None,
+        args.arxiv_ml is not None
+    ])
+    
+    if has_custom and not args.quick and not args.full:
+        # Pure custom mode - only use what user specified
+        synthetic = args.synthetic if args.synthetic is not None else 0
+        wiki = args.wiki if args.wiki is not None else 0
+        arxiv_ai = args.arxiv_ai if args.arxiv_ai is not None else 0
+        arxiv_ml = args.arxiv_ml if args.arxiv_ml is not None else 0
+        full_setup(synthetic, wiki, arxiv_ai, arxiv_ml, args.sync_minio)
+        sys.exit(0)
+    
+    # Mode 4: Preset modes (with optional overrides)
+    if args.quick:
+        # Quick mode defaults
+        synthetic = 200
+        wiki = 300
+        arxiv_ai = 80
+        arxiv_ml = 80
+    elif args.full:
+        # Full mode defaults
+        synthetic = 3000
+        wiki = 2000
+        arxiv_ai = 600
+        arxiv_ml = 600
+    else:
+        # Default mode
+        synthetic = 2000
+        wiki = 1000
+        arxiv_ai = 300
+        arxiv_ml = 300
+    
+    # Apply custom overrides to preset
+    if args.synthetic is not None:
+        synthetic = args.synthetic
+    if args.wiki is not None:
+        wiki = args.wiki
+    if args.arxiv_ai is not None:
+        arxiv_ai = args.arxiv_ai
+    if args.arxiv_ml is not None:
+        arxiv_ml = args.arxiv_ml
+    
+    full_setup(synthetic, wiki, arxiv_ai, arxiv_ml, args.sync_minio)

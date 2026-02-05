@@ -274,6 +274,59 @@ class MinIOStorage:
     def is_available(self) -> bool:
         """Check if MinIO is available and connected"""
         return self.client is not None
+    
+    def upload_corpus_document(
+        self,
+        doc_id: str,
+        title: str,
+        text: str,
+        author: str = "",
+        university: str = "",
+        year: int = 2024
+    ) -> Optional[str]:
+        """
+        Upload a corpus document to MinIO for viewing
+        
+        Args:
+            doc_id: Document ID (UUID)
+            title: Document title
+            text: Document content
+            author: Author name
+            university: University name
+            year: Publication year
+            
+        Returns:
+            Object path if successful, None otherwise
+        """
+        if not self.client:
+            return None
+        
+        # Create filename from title (sanitize)
+        safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in title[:50])
+        filename = f"{safe_title}_{doc_id[:8]}.txt"
+        object_name = f"corpus/{year}/{filename}"
+        
+        # Create content with metadata header
+        content = f"""# {title}
+# Author: {author}
+# University: {university}
+# Year: {year}
+# Document ID: {doc_id}
+# ================================================
+
+{text}
+"""
+        
+        try:
+            return self.upload_bytes(
+                data=content.encode('utf-8'),
+                object_name=object_name,
+                bucket=settings.MINIO_BUCKET_CORPUS,
+                content_type="text/plain; charset=utf-8"
+            )
+        except Exception as e:
+            logger.error(f"Error uploading corpus doc {doc_id}: {e}")
+            return None
 
 
 # Global instance

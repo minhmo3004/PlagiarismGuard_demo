@@ -117,15 +117,24 @@ def import_documents_to_db(documents: list, db_session) -> int:
             
             # Commit in batches
             if imported % 50 == 0:
-                db_session.commit()
-                logger.info(f"   💾 Committed {imported} documents...")
+                try:
+                    db_session.commit()
+                    logger.info(f"   💾 Committed {imported} documents...")
+                except Exception as commit_err:
+                    logger.error(f"❌ Batch commit error: {commit_err}")
+                    db_session.rollback()
         
         except Exception as e:
             logger.error(f"❌ [{i}/{len(documents)}] Error: {e}")
+            db_session.rollback()  # Reset session state
             skipped += 1
     
     # Final commit
-    db_session.commit()
+    try:
+        db_session.commit()
+    except Exception as e:
+        logger.error(f"❌ Final commit error: {e}")
+        db_session.rollback()
     
     logger.info(f"\n{'='*70}")
     logger.info(f"✅ Import Summary:")

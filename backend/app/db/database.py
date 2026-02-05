@@ -14,3 +14,15 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def init_db():
+    """
+    Create all database tables automatically.
+    Called on application startup.
+    """
+    # Import all models so they are registered with Base
+    from app.db import models  # noqa: F401
+    
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database tables created/verified")

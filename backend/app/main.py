@@ -1,9 +1,22 @@
 """
 FastAPI Application Entry Point
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
+from app.db.database import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application startup and shutdown events"""
+    # Startup: Create database tables
+    init_db()
+    yield
+    # Shutdown: cleanup if needed
+    pass
+
 
 # Create FastAPI app
 app = FastAPI(
@@ -11,6 +24,7 @@ app = FastAPI(
     version=settings.APP_VERSION,
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
+    lifespan=lifespan,
 )
 
 # CORS middleware - always allow localhost for development

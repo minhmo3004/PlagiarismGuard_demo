@@ -82,7 +82,10 @@ if [ "$INIT_CORPUS" = true ]; then
     
     echo -e "\n${YELLOW}📚 Generating Vietnamese corpus (3000 documents)...${NC}"
     echo "This may take 2-3 minutes..."
-    docker exec plagiarism-backend python scripts/generate_corpus.py --num-docs 3000
+    docker exec plagiarism-backend python scripts/seed_corpus_matched.py --num-docs 3000
+    
+    echo -e "\n${YELLOW}🔄 Syncing corpus to Redis...${NC}"
+    docker exec plagiarism-backend python scripts/seed_corpus_matched.py --sync-only
     
     echo -e "\n${YELLOW}🔄 Restarting backend to load corpus...${NC}"
     docker restart plagiarism-backend

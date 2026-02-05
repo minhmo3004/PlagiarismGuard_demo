@@ -29,13 +29,31 @@ Corpus hiện tại (6,000 documents) được tạo bằng **synthetic generati
 
 ---
 
-### 2. **Nguồn Dữ Liệu Khác (Chưa Sử Dụng)**
+### 2. **Nguồn Dữ Liệu Khác**
 
 #### Wikipedia Tiếng Việt
-Script `generate_corpus.py` có template để crawl Wikipedia nhưng **chưa triển khai đầy đủ**.
+```bash
+# Crawl 100 bài Wikipedia tiếng Việt
+docker exec -it plagiarism-backend python scripts/crawl_wiki_import.py --random 100
 
-#### Web Crawling
-`backend/scripts/crawlers/` chứa base crawler nhưng **chưa hoạt động**.
+# Crawl từ các category công nghệ
+docker exec -it plagiarism-backend python scripts/crawl_wiki_import.py --tech-categories 30
+```
+
+#### ArXiv Papers (Tiếng Anh)
+```bash
+# Crawl 50 bài AI
+docker exec -it plagiarism-backend python scripts/crawl_arxiv_import.py --ai 50
+
+# Crawl 30 bài Machine Learning
+docker exec -it plagiarism-backend python scripts/crawl_arxiv_import.py --ml 30
+```
+
+#### Sau Khi Crawl, Sync Redis
+```bash
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --sync-only
+docker restart plagiarism-backend
+```
 
 ---
 

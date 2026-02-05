@@ -81,20 +81,8 @@ fi
 echo "✅ Docker services started"
 echo ""
 
-# Database migrations
-echo "🗄️  Running database migrations..."
-cd backend
-source venv/bin/activate
-
-# Check if alembic is configured
-if [ -f "alembic.ini" ]; then
-    alembic upgrade head
-    echo "✅ Database migrations complete"
-else
-    echo "⚠️  No alembic.ini found, skipping migrations"
-fi
-
-cd ..
+# Database tables are auto-created by SQLAlchemy on startup
+echo "🗄️  Database tables will be created automatically on first run"
 echo ""
 
 # Summary

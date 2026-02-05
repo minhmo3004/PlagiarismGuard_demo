@@ -47,11 +47,8 @@ if [ ! -f "venv/bin/uvicorn" ]; then
     pip install -r requirements.txt
 fi
 
-# Run database migrations
-echo "📋 Step 4: Running database migrations..."
-if [ -f "alembic.ini" ]; then
-    alembic upgrade head 2>/dev/null || echo "⚠️  Migrations not configured yet (OK for testing)"
-fi
+# Database tables are auto-created by SQLAlchemy on startup
+echo "📋 Step 4: Database tables will be created automatically..."
 echo ""
 
 # Start backend in background

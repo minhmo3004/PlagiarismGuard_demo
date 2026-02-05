@@ -95,17 +95,14 @@ docker exec plagiarism-backend python scripts/crawl_arxiv_import.py --vietnamese
 docker exec plagiarism-backend python scripts/crawl_arxiv_import.py --multi-category 20
 ```
 
-### 7. Using Shell Script Helper
+### 7. Sync After Crawling
 
 ```bash
-# ArXiv AI papers
-./scripts/wiki-corpus.sh arxiv-ai 30
+# Sync corpus to Redis after crawling
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --sync-only
 
-# ArXiv ML papers
-./scripts/wiki-corpus.sh arxiv-ml 20
-
-# Multi-category crawl
-./scripts/wiki-corpus.sh arxiv-multi 10
+# Restart backend to load into memory
+docker restart plagiarism-backend
 ```
 
 ## How It Works
@@ -290,35 +287,37 @@ db.close()
 
 ```bash
 # More relevant than random crawl
-./scripts/wiki-corpus.sh arxiv-ai 50
-./scripts/wiki-corpus.sh arxiv-ml 50
+docker exec -it plagiarism-backend python scripts/crawl_arxiv_import.py --ai 50
+docker exec -it plagiarism-backend python scripts/crawl_arxiv_import.py --ml 50
 ```
 
 ### 2. Use Multi-category for Diversity
 
 ```bash
 # 10 papers from each category (50 total)
-./scripts/wiki-corpus.sh arxiv-multi 10
+docker exec -it plagiarism-backend python scripts/crawl_arxiv_import.py --multi-category 10
 ```
 
 ### 3. Combine with Wikipedia
 
 ```bash
 # Wikipedia for Vietnamese content
-./scripts/wiki-corpus.sh crawl 100
+docker exec -it plagiarism-backend python scripts/crawl_wiki_import.py --random 100
 
 # ArXiv for English academic content
-./scripts/wiki-corpus.sh arxiv-ai 50
+docker exec -it plagiarism-backend python scripts/crawl_arxiv_import.py --ai 50
 
-# Check combined corpus
-./scripts/wiki-corpus.sh check
+# Sync to Redis
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --sync-only
+docker restart plagiarism-backend
 ```
 
 ### 4. Sync After Large Imports
 
 ```bash
-# After 100+ papers
-./scripts/wiki-corpus.sh sync
+# After importing many documents
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --sync-only
+docker restart plagiarism-backend
 ```
 
 ## Troubleshooting

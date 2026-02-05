@@ -35,51 +35,78 @@ cp .env.example .env
 # Chỉnh sửa .env nếu cần thay đổi ports hoặc credentials
 ```
 
-### Bước 3: Khởi Động Docker (Không Seed)
+### Bước 3: Khởi Động Docker
 ```bash
-# Chỉ khởi động services, không seed corpus
-./docker-start.sh
+docker-compose up -d
 ```
 
-### Bước 4: Khởi Động Docker + Seed 3000 Tài Liệu
+### Bước 4: Seed Corpus từ 3 Nguồn
 ```bash
-# Khởi động + tự động seed 3000 tài liệu tiếng Việt
-./docker-start.sh --init-corpus
+# Setup nhanh (~660 docs) - để test
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --quick
+
+# HOẶC Setup mặc định (~3,600 docs)
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py
+
+# HOẶC Setup đầy đủ (~6,200 docs)
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --full
+
+# Sau khi seed xong, restart backend
+docker restart plagiarism-backend
 ```
 
-> ⏱️ Thời gian seed: khoảng 2-3 phút cho 3000 tài liệu
+> ⏱️ Thời gian: 5-15 phút tùy lựa chọn
 
 ---
 
 ## 3. Seed Corpus
 
-### 3.1. Seed Tự Động (Khuyến Nghị)
+### 3.1. Dùng Script Seed (Khuyến Nghị)
 ```bash
-./docker-start.sh --init-corpus
+# Seed từ 3 nguồn: Synthetic + Wikipedia + ArXiv
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py
 ```
 
-### 3.2. Seed Thủ Công
+Các tùy chọn:
+| Lệnh | Docs | Mô tả |
+|------|------|-------|
+| `--quick` | ~660 | Test nhanh |
+| (mặc định) | ~3,600 | Cân bằng |
+| `--full` | ~6,200 | Đầy đủ |
+| `--sync-minio` | - | Upload files lên MinIO |
+
+### 3.2. Tùy Chỉnh Từng Nguồn
 ```bash
-# Khởi động Docker trước
-docker-compose up -d
+# Chỉ seed synthetic
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --synthetic 1000
 
-# Chờ services healthy (~30s)
-docker ps
+# Chỉ crawl Wikipedia
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --wiki 500
 
-# Seed 3000 tài liệu
-docker exec plagiarism-backend python scripts/generate_corpus.py --num-docs 3000
+# Kết hợp
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --synthetic 500 --wiki 300 --arxiv-ai 100
 
-# Restart backend để load corpus vào memory
+# Kèm upload MinIO (để xem file)
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --synthetic 500 --sync-minio
+```
+
+### 3.3. Crawl Riêng Từng Nguồn
+```bash
+# Seed synthetic docs only (legacy)
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --num-docs 3000
+
+# Crawl Wikipedia only
+docker exec -it plagiarism-backend python scripts/crawl_wiki_import.py --random 500
+
+# Crawl ArXiv only
+docker exec -it plagiarism-backend python scripts/crawl_arxiv_import.py --ai 100
+
+# Sync vào Redis LSH index
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --sync-only
+
+# Restart backend để load corpus
 docker restart plagiarism-backend
 ```
-
-### 3.3. Tùy Chọn Số Lượng
-| Lệnh | Số docs | Thời gian |
-|------|---------|-----------|
-| `--num-docs 100` | 100 | ~20 giây |
-| `--num-docs 500` | 500 | ~1 phút |
-| `--num-docs 1000` | 1000 | ~1.5 phút |
-| `--num-docs 3000` | 3000 | ~3 phút |
 
 ### 3.4. Kiểm Tra Corpus Đã Seed
 ```bash
@@ -156,8 +183,18 @@ docker-compose up -d
 
 ### Lỗi: corpus_size = 0
 ```bash
-# Seed lại
-docker exec plagiarism-backend python scripts/generate_corpus.py --num-docs 3000
+# Kiểm tra corpus trong PostgreSQL
+docker exec -it plagiarism-backend python -c "
+from app.db.database import SessionLocal
+from app.db.models import Document
+db = SessionLocal()
+count = db.query(Document).filter(Document.is_corpus == 1).count()
+print(f'Corpus trong PostgreSQL: {count} documents')
+db.close()
+"
+
+# Nếu có data nhưng chưa sync Redis, chạy sync
+docker exec -it plagiarism-backend python scripts/seed_corpus_matched.py --sync-only
 
 # Restart backend
 docker restart plagiarism-backend
