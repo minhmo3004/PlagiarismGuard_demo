@@ -66,6 +66,9 @@ def import_documents_to_db(documents: list, db_session) -> int:
     logger.info(f"📥 IMPORTING {len(documents)} DOCUMENTS TO DATABASE")
     logger.info(f"{'='*70}\n")
     
+    # Track hashes we've seen in this session to avoid in-batch duplicates
+    seen_hashes = set()
+    
     for i, doc_data in enumerate(documents, 1):
         try:
             # Normalize and tokenize
@@ -80,14 +83,21 @@ def import_documents_to_db(documents: list, db_session) -> int:
                 skipped += 1
                 continue
             
-            # Check duplicate by hash
+            # Check duplicate by hash (in-memory + database)
             text_hash = hashlib.sha256(text.encode()).hexdigest()
+            
+            if text_hash in seen_hashes:
+                logger.warning(f"⚠️  [{i}/{len(documents)}] {doc_data['title'][:40]}... - Duplicate in batch, skipped")
+                skipped += 1
+                continue
+            
             existing = db_session.query(Document).filter(
                 Document.file_hash_sha256 == text_hash
             ).first()
             
             if existing:
-                logger.warning(f"⚠️  [{i}/{len(documents)}] {doc_data['title'][:40]}... - Duplicate, skipped")
+                logger.warning(f"⚠️  [{i}/{len(documents)}] {doc_data['title'][:40]}... - Duplicate in DB, skipped")
+                seen_hashes.add(text_hash)
                 skipped += 1
                 continue
             
@@ -110,31 +120,26 @@ def import_documents_to_db(documents: list, db_session) -> int:
                 indexed_at=datetime.now()
             )
             
+            # Commit each document individually to prevent cascade failures
             db_session.add(doc)
-            imported += 1
-            
-            logger.info(f"✅ [{imported}/{len(documents)}] {doc_data['title'][:50]}... - {word_count} words")
-            
-            # Commit in batches
-            if imported % 50 == 0:
-                try:
-                    db_session.commit()
-                    logger.info(f"   💾 Committed {imported} documents...")
-                except Exception as commit_err:
-                    logger.error(f"❌ Batch commit error: {commit_err}")
-                    db_session.rollback()
+            try:
+                db_session.commit()
+                seen_hashes.add(text_hash)
+                imported += 1
+                logger.info(f"✅ [{imported}/{len(documents)}] {doc_data['title'][:50]}... - {word_count} words")
+            except Exception as commit_err:
+                db_session.rollback()
+                logger.warning(f"⚠️  [{i}/{len(documents)}] {doc_data['title'][:40]}... - DB error, skipped: {str(commit_err)[:80]}")
+                seen_hashes.add(text_hash)
+                skipped += 1
         
         except Exception as e:
             logger.error(f"❌ [{i}/{len(documents)}] Error: {e}")
-            db_session.rollback()  # Reset session state
+            try:
+                db_session.rollback()
+            except Exception:
+                pass
             skipped += 1
-    
-    # Final commit
-    try:
-        db_session.commit()
-    except Exception as e:
-        logger.error(f"❌ Final commit error: {e}")
-        db_session.rollback()
     
     logger.info(f"\n{'='*70}")
     logger.info(f"✅ Import Summary:")
