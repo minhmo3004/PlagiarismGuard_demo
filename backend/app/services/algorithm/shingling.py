@@ -96,6 +96,7 @@ def find_common_shingles(
 ) -> List[Dict]:
     """
     Tìm các shingles chung giữa query và source document.
+    Merge các shingle liên tiếp/chồng lấn thành đoạn text đầy đủ.
     
     Args:
         query_tokens: Tokens của query document
@@ -103,63 +104,70 @@ def find_common_shingles(
         k: Kích thước shingle
     
     Returns:
-        List các matched segments với thông tin vị trí và text
+        List các matched segments với thông tin vị trí và FULL text
     """
     query_shingles, query_positions = create_shingles_with_positions(query_tokens, k)
     source_shingles, source_positions = create_shingles_with_positions(source_tokens, k)
     
     common_hashes = query_shingles & source_shingles
     
-    matched_segments = []
-    for hash_val in common_hashes:
-        if hash_val in query_positions and hash_val in source_positions:
-            # Có thể có nhiều vị trí trong cùng 1 document
-            for q_start, q_end, q_text in query_positions[hash_val]:
-                for s_start, s_end, s_text in source_positions[hash_val]:
-                    matched_segments.append({
-                        "query_start": q_start,
-                        "query_end": q_end,
-                        "query_text": q_text,
-                        "source_start": s_start,
-                        "source_end": s_end,
-                        "source_text": s_text
-                    })
-    
-    # Sort by query position
-    matched_segments.sort(key=lambda x: x["query_start"])
-    
-    # Merge overlapping segments
-    merged = merge_overlapping_segments(matched_segments)
-    
-    return merged
-
-
-def merge_overlapping_segments(segments: List[Dict]) -> List[Dict]:
-    """
-    Gộp các segments liền kề hoặc chồng lấn thành 1 segment lớn hơn.
-    
-    Args:
-        segments: List các matched segments đã sort theo query_start
-    
-    Returns:
-        List các merged segments
-    """
-    if not segments:
+    if not common_hashes:
         return []
     
-    merged = [segments[0].copy()]
+    # Collect all matched token ranges (not text - rebuild later)
+    matched_ranges = []
+    for hash_val in common_hashes:
+        if hash_val in query_positions and hash_val in source_positions:
+            for q_start, q_end, _ in query_positions[hash_val]:
+                for s_start, s_end, _ in source_positions[hash_val]:
+                    matched_ranges.append({
+                        "query_start": q_start,
+                        "query_end": q_end,
+                        "source_start": s_start,
+                        "source_end": s_end,
+                    })
     
-    for seg in segments[1:]:
-        last = merged[-1]
-        # Nếu segment mới chồng lấn hoặc liền kề với segment trước
-        if seg["query_start"] <= last["query_end"]:
-            # Merge
-            last["query_end"] = max(last["query_end"], seg["query_end"])
-            last["query_text"] = f"{last['query_text']}..."  # Indicate merged
-            last["source_end"] = max(last["source_end"], seg["source_end"])
-            last["source_text"] = f"{last['source_text']}..."
+    if not matched_ranges:
+        return []
+    
+    # Sort by query position
+    matched_ranges.sort(key=lambda x: x["query_start"])
+    
+    # Merge overlapping/adjacent ranges
+    merged_ranges = [matched_ranges[0].copy()]
+    for rng in matched_ranges[1:]:
+        last = merged_ranges[-1]
+        # Merge if overlapping or adjacent (within 2 tokens gap)
+        if rng["query_start"] <= last["query_end"] + 2:
+            last["query_end"] = max(last["query_end"], rng["query_end"])
+            last["source_end"] = max(last["source_end"], rng["source_end"])
         else:
-            merged.append(seg.copy())
+            merged_ranges.append(rng.copy())
     
-    return merged
+    # Rebuild full text from token ranges
+    segments = []
+    for rng in merged_ranges:
+        q_start = rng["query_start"]
+        q_end = min(rng["query_end"], len(query_tokens))
+        s_start = rng["source_start"]
+        s_end = min(rng["source_end"], len(source_tokens))
+        
+        query_text = " ".join(query_tokens[q_start:q_end])
+        source_text = " ".join(source_tokens[s_start:s_end])
+        
+        # Only include segments with meaningful length (>= 2 words visible)
+        if len(query_text.split()) >= 2:
+            segments.append({
+                "query_start": q_start,
+                "query_end": q_end,
+                "query_text": query_text,
+                "source_start": s_start,
+                "source_end": s_end,
+                "source_text": source_text,
+            })
+    
+    # Sort by length (longest first) so most important segments show first
+    segments.sort(key=lambda x: x["query_end"] - x["query_start"], reverse=True)
+    
+    return segments
 

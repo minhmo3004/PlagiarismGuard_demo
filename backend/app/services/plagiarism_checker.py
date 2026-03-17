@@ -345,8 +345,8 @@ class PlagiarismChecker:
                     source_tokens = preprocess_vietnamese(normalize_text(source_text))
                     segments_data = find_common_shingles(tokens, source_tokens, k=settings.SHINGLE_SIZE)
                     
-                    # Limit to top 10 segments per match
-                    for seg in segments_data[:10]:
+                    # Show up to 50 segments per match (sorted by length, longest first)
+                    for seg in segments_data[:50]:
                         matched_segments.append(MatchedSegment(
                             query_text=seg["query_text"],
                             query_start=seg["query_start"],
