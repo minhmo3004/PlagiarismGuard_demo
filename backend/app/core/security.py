@@ -1,6 +1,6 @@
 """
-Security module
-JWT token generation, password hashing, authentication
+Module bảo mật
+Tạo token JWT, mã hóa mật khẩu, xác thực
 """
 from datetime import datetime, timedelta
 from typing import Optional
@@ -8,47 +8,47 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.config import settings
 
-# Password hashing context
+# Context mã hóa mật khẩu (sử dụng bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    Verify a password against its hash
+    Kiểm tra mật khẩu gốc so với mật khẩu đã mã hóa
     
     Args:
-        plain_password: Plain text password
-        hashed_password: Bcrypt hashed password
+        plain_password: Mật khẩu dạng văn bản rõ
+        hashed_password: Mật khẩu đã được mã hóa bằng bcrypt
     
     Returns:
-        True if password matches
+        True nếu mật khẩu khớp, False nếu không
     """
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
     """
-    Hash a password using bcrypt
+    Mã hóa mật khẩu bằng bcrypt
     
     Args:
-        password: Plain text password
+        password: Mật khẩu dạng văn bản rõ
     
     Returns:
-        Bcrypt hashed password
+        Chuỗi mật khẩu đã được mã hóa (bcrypt hash)
     """
     return pwd_context.hash(password)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
-    Create JWT access token
+    Tạo access token JWT
     
     Args:
-        data: Payload data (typically {"sub": user_id})
-        expires_delta: Token expiration time (default from settings)
+        data: Dữ liệu payload (thường là {"sub": user_id})
+        expires_delta: Thời gian hết hạn của token (mặc định lấy từ settings)
     
     Returns:
-        Encoded JWT token
+        Chuỗi token JWT đã mã hóa
     """
     to_encode = data.copy()
     
@@ -70,13 +70,13 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 def create_refresh_token(data: dict) -> str:
     """
-    Create JWT refresh token
+    Tạo refresh token JWT
     
     Args:
-        data: Payload data (typically {"sub": user_id})
+        data: Dữ liệu payload (thường là {"sub": user_id})
     
     Returns:
-        Encoded JWT refresh token
+        Chuỗi refresh token JWT đã mã hóa
     """
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
@@ -92,16 +92,16 @@ def create_refresh_token(data: dict) -> str:
 
 def decode_token(token: str) -> dict:
     """
-    Decode and validate JWT token
+    Giải mã và xác thực token JWT
     
     Args:
-        token: JWT token string
+        token: Chuỗi token JWT
     
     Returns:
-        Decoded payload
+        Payload đã giải mã (dạng dict)
     
     Raises:
-        JWTError: If token is invalid or expired
+        JWTError: Nếu token không hợp lệ hoặc đã hết hạn
     """
     try:
         payload = jwt.decode(

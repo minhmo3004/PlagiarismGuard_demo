@@ -1,1 +1,1 @@
-"""API routes package"""
+"""Gói chứa các route API"""

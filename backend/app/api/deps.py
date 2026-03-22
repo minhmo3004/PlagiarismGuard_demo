@@ -1,6 +1,6 @@
 """
-API dependencies
-Provides reusable dependencies for routes
+Các dependency cho API
+Cung cấp các dependency có thể tái sử dụng cho các route
 """
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -9,7 +9,7 @@ from app.core.security import decode_token
 from app.models.user import User
 from typing import Optional
 
-# HTTP Bearer token scheme
+# Scheme xác thực HTTP Bearer token
 security = HTTPBearer()
 
 
@@ -17,22 +17,22 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> User:
     """
-    Get current authenticated user from JWT token
+    Lấy thông tin người dùng hiện tại từ JWT token
     
     Args:
-        credentials: HTTP Bearer credentials
+        credentials: Thông tin xác thực Bearer
     
     Returns:
-        User object
+        Đối tượng User
     
     Raises:
-        HTTPException: If token is invalid or user not found
+        HTTPException: Nếu token không hợp lệ hoặc không tìm thấy người dùng
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail={
             "code": "INVALID_TOKEN",
-            "message": "Could not validate credentials"
+            "message": "Không thể xác thực thông tin đăng nhập"
         },
         headers={"WWW-Authenticate": "Bearer"},
     )
@@ -49,13 +49,13 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
     
-    # TODO: Get user from database
+    # TODO: Lấy thông tin người dùng từ cơ sở dữ liệu
     # user = await get_user_by_id(user_id)
     # if user is None:
     #     raise credentials_exception
     
-    # For now, return mock user
-    # This will be replaced with actual database query
+    # Tạm thời trả về user giả lập (mock)
+    # Sau này sẽ thay bằng truy vấn database thực tế
     return User(
         id=user_id,
         email="user@example.com",
@@ -70,30 +70,30 @@ async def get_current_active_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """
-    Get current active user (can add additional checks here)
+    Lấy người dùng hiện tại đang hoạt động (có thể thêm kiểm tra bổ sung ở đây)
     
     Args:
-        current_user: Current user from get_current_user
+        current_user: Người dùng hiện tại từ get_current_user
     
     Returns:
-        User object if active
+        Đối tượng User nếu đang hoạt động
     """
-    # Add additional checks if needed (e.g., is_active flag)
+    # Có thể thêm kiểm tra bổ sung nếu cần (ví dụ: cờ is_active)
     return current_user
 
 
 async def check_user_quota(user: User) -> bool:
     """
-    Check if user has remaining quota for today
+    Kiểm tra xem người dùng còn hạn mức (quota) sử dụng trong ngày hay không
     
     Args:
-        user: User object
+        user: Đối tượng User
     
     Returns:
-        True if user has quota remaining
+        True nếu còn hạn mức, False nếu đã hết
     """
-    # TODO: Implement actual quota check from database
-    # For now, simple check based on tier
+    # TODO: Triển khai kiểm tra quota thực tế từ database
+    # Hiện tại chỉ kiểm tra đơn giản dựa trên tier
     
     quota_limits = {
         "free": 10,

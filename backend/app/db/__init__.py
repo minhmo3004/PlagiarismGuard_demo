@@ -1,3 +1,7 @@
+"""
+Khởi tạo package database
+Export các thành phần chính để sử dụng ở các module khác
+"""
 from .database import engine, SessionLocal, Base, get_db
 from . import models
 

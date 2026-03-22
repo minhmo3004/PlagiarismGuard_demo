@@ -1,8 +1,8 @@
 """
-PDF text extraction module
-Handles both native PDF and scanned PDF (with OCR)
+Module trích xuất văn bản từ PDF
+Hỗ trợ cả PDF thường và PDF dạng scan (sử dụng OCR)
 """
-import fitz  # PyMuPDF
+import fitz  # Thư viện PyMuPDF
 import pytesseract
 from pdf2image import convert_from_path
 from PIL import Image
@@ -10,10 +10,10 @@ import signal
 from typing import Tuple
 from .file_validator import is_scanned_pdf
 
-# OCR Configuration
-OCR_TIMEOUT_SECONDS = 300  # 5 phút timeout cho toàn bộ document
-OCR_TIMEOUT_PER_PAGE = 30  # 30 giây per page
-MAX_PAGES_FOR_OCR = 100    # Giới hạn số trang OCR
+# Cấu hình OCR
+OCR_TIMEOUT_SECONDS = 300  # Timeout toàn bộ tài liệu: 5 phút
+OCR_TIMEOUT_PER_PAGE = 30  # Timeout mỗi trang: 30 giây
+MAX_PAGES_FOR_OCR = 100    # Giới hạn số trang khi dùng OCR
 
 
 def filter_header_footer(page) -> str:
@@ -21,14 +21,14 @@ def filter_header_footer(page) -> str:
     Loại bỏ header/footer dựa trên vị trí tọa độ
     
     Args:
-        page: PyMuPDF page object
+        page: Đối tượng page của PyMuPDF
     
     Returns:
-        Text without header/footer
+        Văn bản đã loại bỏ header/footer
     """
     page_height = page.rect.height
     
-    # Safe zone: 8% từ trên và dưới
+    # Vùng an toàn: bỏ 8% trên và dưới
     HEADER_THRESHOLD = page_height * 0.08
     FOOTER_THRESHOLD = page_height * 0.92
     
@@ -43,13 +43,13 @@ def filter_header_footer(page) -> str:
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     """
-    Extract text từ PDF với header/footer removal
+    Trích xuất văn bản từ PDF (có loại bỏ header/footer)
     
     Args:
-        pdf_path: Path to PDF file
+        pdf_path: Đường dẫn tới file PDF
     
     Returns:
-        Extracted text
+        Văn bản đã trích xuất
     """
     doc = fitz.open(pdf_path)
     full_text = []
@@ -64,22 +64,22 @@ def extract_text_from_pdf(pdf_path: str) -> str:
 
 def ocr_pdf_with_timeout(pdf_path: str) -> str:
     """
-    OCR với timeout protection
+    Thực hiện OCR với cơ chế giới hạn thời gian
     
     Args:
-        pdf_path: Path to scanned PDF
+        pdf_path: Đường dẫn tới PDF dạng scan
     
     Returns:
-        OCR extracted text
+        Văn bản trích xuất bằng OCR
     
     Raises:
-        TimeoutError: If OCR exceeds timeout
-        ValueError: If PDF has too many pages
+        TimeoutError: Nếu OCR vượt quá thời gian cho phép
+        ValueError: Nếu PDF có quá nhiều trang
     """
     def timeout_handler(signum, frame):
-        raise TimeoutError("OCR timeout exceeded")
+        raise TimeoutError("OCR vượt quá thời gian cho phép")
     
-    # Set timeout
+    # Thiết lập timeout
     signal.signal(signal.SIGALRM, timeout_handler)
     signal.alarm(OCR_TIMEOUT_SECONDS)
     
@@ -93,7 +93,7 @@ def ocr_pdf_with_timeout(pdf_path: str) -> str:
         
         full_text = []
         for i, image in enumerate(images):
-            # Per-page timeout
+            # Timeout cho từng trang
             text = pytesseract.image_to_string(
                 image, 
                 lang='vie+eng',
@@ -104,26 +104,26 @@ def ocr_pdf_with_timeout(pdf_path: str) -> str:
         return "\n".join(full_text)
     
     finally:
-        signal.alarm(0)  # Cancel timeout
+        signal.alarm(0)  # Hủy timeout
 
 
 def extract_text_with_fallback(pdf_path: str) -> Tuple[str, str]:
     """
-    Extract text với OCR fallback
+    Trích xuất văn bản với cơ chế fallback sang OCR
     
     Args:
-        pdf_path: Path to PDF file
+        pdf_path: Đường dẫn tới file PDF
     
     Returns:
-        Tuple of (text, extraction_method)
-        extraction_method: "ocr" or "native"
+        Tuple gồm (text, phương pháp trích xuất)
+        phương pháp: "ocr" hoặc "native"
     
     Raises:
-        ValueError: If extraction fails
+        ValueError: Nếu không thể trích xuất
     """
     doc = fitz.open(pdf_path)
     
-    # Check first page to determine type
+    # Kiểm tra trang đầu để xác định loại PDF
     first_page = doc[0]
     
     if is_scanned_pdf(first_page):
@@ -132,9 +132,9 @@ def extract_text_with_fallback(pdf_path: str) -> Tuple[str, str]:
             text = ocr_pdf_with_timeout(pdf_path)
             return text, "ocr"
         except TimeoutError:
-            raise ValueError("OCR timeout - file quá lớn hoặc quá phức tạp")
+            raise ValueError("OCR bị timeout - file quá lớn hoặc quá phức tạp")
         except Exception as e:
-            raise ValueError(f"OCR failed: {str(e)}")
+            raise ValueError(f"OCR thất bại: {str(e)}")
     else:
         text = "\n".join([filter_header_footer(page) for page in doc])
         doc.close()

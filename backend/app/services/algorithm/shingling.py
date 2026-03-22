@@ -1,44 +1,44 @@
 """
-Shingling module
-Creates k-shingles (n-grams) from tokenized text
+Module Shingling
+Tạo các k-shingle (n-gram) từ văn bản đã tokenize
 """
 from typing import Set, List, Tuple, Dict
-import mmh3  # MurmurHash3
+import mmh3  # Thư viện MurmurHash3
 
 
 def create_shingles(tokens: List[str], k: int = 7) -> Set[int]:
     """
-    Tạo set các shingle hashes từ list tokens
+    Tạo tập các hash của shingle từ danh sách tokens
     
-    Uses sliding window approach with MurmurHash3 for hashing.
+    Sử dụng kỹ thuật sliding window kết hợp MurmurHash3 để hash.
     
     Args:
-        tokens: List các từ đã tokenize
-        k: Kích thước shingle (số từ). Default=7 for Vietnamese
+        tokens: Danh sách các từ đã được tokenize
+        k: Kích thước shingle (số từ). Mặc định = 7 cho tiếng Việt
     
     Returns:
-        Set các hash values (32-bit unsigned integers)
+        Tập các giá trị hash (số nguyên 32-bit không dấu)
     
-    Example:
+    Ví dụ:
         tokens = ["Trí_tuệ", "nhân_tạo", "đang", "phát_triển", "mạnh"]
         shingles = create_shingles(tokens, k=3)
-        # Creates hashes for:
+        # Tạo hash cho:
         # - "Trí_tuệ nhân_tạo đang"
         # - "nhân_tạo đang phát_triển"
         # - "đang phát_triển mạnh"
     """
     if len(tokens) < k:
-        # Nếu văn bản quá ngắn, dùng toàn bộ làm 1 shingle
+        # Nếu văn bản quá ngắn thì dùng toàn bộ làm 1 shingle
         shingle = " ".join(tokens)
         return {mmh3.hash(shingle, signed=False)}
     
     shingle_set = set()
     for i in range(len(tokens) - k + 1):
-        # Create shingle from k consecutive tokens
+        # Tạo shingle từ k token liên tiếp
         shingle = " ".join(tokens[i:i+k])
         
-        # MurmurHash3 32-bit unsigned
-        # signed=False ensures positive integers
+        # Hash bằng MurmurHash3 32-bit không dấu
+        # signed=False đảm bảo luôn là số dương
         hash_value = mmh3.hash(shingle, signed=False)
         shingle_set.add(hash_value)
     
@@ -47,18 +47,18 @@ def create_shingles(tokens: List[str], k: int = 7) -> Set[int]:
 
 def create_shingles_with_positions(tokens: List[str], k: int = 7) -> Tuple[Set[int], Dict[int, List[Tuple[int, int, str]]]]:
     """
-    Tạo shingles với thông tin vị trí để hỗ trợ highlight matched segments.
+    Tạo shingle kèm thông tin vị trí để phục vụ highlight đoạn trùng
     
     Args:
-        tokens: List các từ đã tokenize
-        k: Kích thước shingle (số từ)
+        tokens: Danh sách từ đã tokenize
+        k: Kích thước shingle
     
     Returns:
         Tuple gồm:
-        - Set các hash values
-        - Dict mapping hash -> list of (start_token_idx, end_token_idx, original_text)
+        - Tập các hash
+        - Dict ánh xạ hash -> list (vị trí bắt đầu, kết thúc, text gốc)
     
-    Example:
+    Ví dụ:
         tokens = ["Trí_tuệ", "nhân_tạo", "đang", "phát_triển", "mạnh"]
         shingles, positions = create_shingles_with_positions(tokens, k=3)
         # positions = {
@@ -68,6 +68,7 @@ def create_shingles_with_positions(tokens: List[str], k: int = 7) -> Tuple[Set[i
         # }
     """
     if len(tokens) < k:
+        # Nếu ngắn hơn k thì chỉ có 1 shingle duy nhất
         shingle = " ".join(tokens)
         hash_val = mmh3.hash(shingle, signed=False)
         return {hash_val}, {hash_val: [(0, len(tokens), shingle)]}
@@ -81,7 +82,7 @@ def create_shingles_with_positions(tokens: List[str], k: int = 7) -> Tuple[Set[i
         
         shingle_set.add(hash_value)
         
-        # Store position info
+        # Lưu thông tin vị trí
         if hash_value not in positions:
             positions[hash_value] = []
         positions[hash_value].append((i, i + k, shingle))
@@ -95,26 +96,28 @@ def find_common_shingles(
     k: int = 7
 ) -> List[Dict]:
     """
-    Tìm các shingles chung giữa query và source document.
-    Merge các shingle liên tiếp/chồng lấn thành đoạn text đầy đủ.
+    Tìm các shingle chung giữa document query và document nguồn
+    
+    Sau đó merge các shingle liên tiếp hoặc chồng lấn thành đoạn text hoàn chỉnh
     
     Args:
-        query_tokens: Tokens của query document
-        source_tokens: Tokens của source document
+        query_tokens: Tokens của tài liệu cần kiểm tra
+        source_tokens: Tokens của tài liệu nguồn
         k: Kích thước shingle
     
     Returns:
-        List các matched segments với thông tin vị trí và FULL text
+        Danh sách các đoạn trùng kèm thông tin vị trí và nội dung đầy đủ
     """
     query_shingles, query_positions = create_shingles_with_positions(query_tokens, k)
     source_shingles, source_positions = create_shingles_with_positions(source_tokens, k)
     
+    # Lấy các hash chung
     common_hashes = query_shingles & source_shingles
     
     if not common_hashes:
         return []
     
-    # Collect all matched token ranges (not text - rebuild later)
+    # Thu thập các khoảng token trùng nhau (chưa build text)
     matched_ranges = []
     for hash_val in common_hashes:
         if hash_val in query_positions and hash_val in source_positions:
@@ -130,21 +133,21 @@ def find_common_shingles(
     if not matched_ranges:
         return []
     
-    # Sort by query position
+    # Sắp xếp theo vị trí trong query
     matched_ranges.sort(key=lambda x: x["query_start"])
     
-    # Merge overlapping/adjacent ranges
+    # Gộp các đoạn chồng lấn hoặc liền kề
     merged_ranges = [matched_ranges[0].copy()]
     for rng in matched_ranges[1:]:
         last = merged_ranges[-1]
-        # Merge if overlapping or adjacent (within 2 tokens gap)
+        # Gộp nếu chồng lấn hoặc cách nhau tối đa 2 token
         if rng["query_start"] <= last["query_end"] + 2:
             last["query_end"] = max(last["query_end"], rng["query_end"])
             last["source_end"] = max(last["source_end"], rng["source_end"])
         else:
             merged_ranges.append(rng.copy())
     
-    # Rebuild full text from token ranges
+    # Xây dựng lại text từ token
     segments = []
     for rng in merged_ranges:
         q_start = rng["query_start"]
@@ -155,7 +158,7 @@ def find_common_shingles(
         query_text = " ".join(query_tokens[q_start:q_end])
         source_text = " ".join(source_tokens[s_start:s_end])
         
-        # Only include segments with meaningful length (>= 2 words visible)
+        # Chỉ lấy đoạn có ý nghĩa (>= 2 từ)
         if len(query_text.split()) >= 2:
             segments.append({
                 "query_start": q_start,
@@ -166,8 +169,7 @@ def find_common_shingles(
                 "source_text": source_text,
             })
     
-    # Sort by length (longest first) so most important segments show first
+    # Sắp xếp theo độ dài giảm dần (đoạn quan trọng hiển thị trước)
     segments.sort(key=lambda x: x["query_end"] - x["query_start"], reverse=True)
     
     return segments
-

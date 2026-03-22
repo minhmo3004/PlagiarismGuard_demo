@@ -1,6 +1,6 @@
 """
-LSH Index module
-Locality Sensitive Hashing for fast similarity search
+Module chỉ mục LSH (Locality Sensitive Hashing)
+Sử dụng để tìm kiếm nhanh tài liệu tương đồng dựa trên Jaccard similarity
 """
 from datasketch import MinHash, MinHashLSH
 from typing import List, Tuple, Dict
@@ -8,26 +8,26 @@ from typing import List, Tuple, Dict
 
 class LSHIndex:
     """
-    Wrapper around datasketch MinHashLSH
+    Lớp bọc quanh MinHashLSH của thư viện datasketch
     
-    LSH uses banding technique to find candidate pairs:
-    - Divides signature into b bands of r rows each
-    - Two documents are candidates if they match in at least one band
-    - Probability: P(candidate) = 1 - (1 - s^r)^b
+    Nguyên lý hoạt động của LSH:
+    - Chia signature thành b bands, mỗi band có r rows
+    - Hai tài liệu được coi là candidate nếu chúng khớp ít nhất ở một band
+    - Xác suất phát hiện: P(candidate) = 1 - (1 - s^r)^b
     
-    Configuration:
-        threshold=0.4, b=32, r=4 (b*r = 128)
-        - s=0.5: P ≈ 86% detection
-        - s=0.2: P ≈ 5% false positive
+    Cấu hình mặc định:
+        threshold=0.4, num_perm=128 (b=32, r=4 → b*r=128)
+        - Với similarity s=0.5: Xác suất phát hiện ≈ 86%
+        - Với similarity s=0.2: Xác suất false positive ≈ 5%
     """
     
     def __init__(self, threshold: float = 0.4, num_perm: int = 128):
         """
-        Initialize LSH index
+        Khởi tạo chỉ mục LSH
         
         Args:
-            threshold: Jaccard similarity threshold (default 0.4)
-            num_perm: Number of permutations (must match MinHash, default 128)
+            threshold: Ngưỡng Jaccard similarity tối thiểu (mặc định 0.4)
+            num_perm: Số lượng permutation (phải khớp với MinHash, mặc định 128)
         """
         self.threshold = threshold
         self.num_perm = num_perm
@@ -36,51 +36,51 @@ class LSHIndex:
     
     def insert(self, doc_id: str, minhash: MinHash) -> None:
         """
-        Insert document vào index
+        Thêm một tài liệu vào chỉ mục LSH
         
         Args:
-            doc_id: Unique document identifier
-            minhash: MinHash signature of the document
+            doc_id: Mã định danh duy nhất của tài liệu
+            minhash: Chữ ký MinHash của tài liệu
         """
         self.lsh.insert(doc_id, minhash)
         self.signatures[doc_id] = minhash
     
     def query(self, minhash: MinHash, top_k: int = 10) -> List[Tuple[str, float]]:
         """
-        Query để tìm candidate documents
+        Tìm kiếm các tài liệu candidate tương đồng với tài liệu query
         
         Args:
-            minhash: MinHash signature of query document
-            top_k: Maximum number of results to return
+            minhash: Chữ ký MinHash của tài liệu query
+            top_k: Số lượng kết quả tối đa trả về (mặc định 10)
         
         Returns:
-            List of (doc_id, estimated_jaccard) sorted by similarity descending
+            Danh sách các cặp (doc_id, estimated_jaccard) được sắp xếp giảm dần theo độ tương đồng
         
-        Example:
+        Ví dụ:
             results = lsh_index.query(query_minhash, top_k=5)
-            # [('doc123', 0.85), ('doc456', 0.72), ...]
+            # Kết quả: [('doc123', 0.85), ('doc456', 0.72), ...]
         """
-        # Get candidates from LSH
+        # Lấy danh sách candidate từ LSH
         candidates = self.lsh.query(minhash)
         
-        # Calculate exact Jaccard for candidates
+        # Tính Jaccard similarity chính xác cho từng candidate
         results = []
         for doc_id in candidates:
             if doc_id in self.signatures:
                 jaccard = minhash.jaccard(self.signatures[doc_id])
                 results.append((doc_id, jaccard))
         
-        # Sort by similarity descending
+        # Sắp xếp theo độ tương đồng giảm dần
         results.sort(key=lambda x: x[1], reverse=True)
         
         return results[:top_k]
     
     def remove(self, doc_id: str) -> None:
         """
-        Remove document from index
+        Xóa một tài liệu khỏi chỉ mục LSH
         
         Args:
-            doc_id: Document identifier to remove
+            doc_id: Mã định danh của tài liệu cần xóa
         """
         if doc_id in self.signatures:
             self.lsh.remove(doc_id)
@@ -88,10 +88,10 @@ class LSHIndex:
     
     def get_stats(self) -> Dict:
         """
-        Get index statistics
+        Lấy thông tin thống kê của chỉ mục
         
         Returns:
-            Dict with index stats
+            Dictionary chứa các thông tin thống kê
         """
         return {
             "total_documents": len(self.signatures),

@@ -50,8 +50,8 @@ class Settings(BaseSettings):
     MINHASH_SEED: int = 42
     MINHASH_PERMUTATIONS: int = 128
     LSH_THRESHOLD: float = 0.3  # Lowered from 0.4 for better matching
-    LSH_BANDS: int = 32
-    LSH_ROWS: int = 4
+    LSH_BANDS: int = 16
+    LSH_ROWS: int = 8
     SHINGLE_SIZE: int = 7
     
     # OCR Settings

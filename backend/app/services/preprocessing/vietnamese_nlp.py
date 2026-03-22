@@ -1,7 +1,6 @@
-"""Vietnamese NLP module
-Handles Vietnamese word segmentation using underthesea when available.
-If underthesea is not installed or fails at runtime we fall back to a
-simple whitespace tokenizer.
+"""
+Module xử lý NLP tiếng Việt
+Tách từ tiếng Việt bằng underthesea (nếu có), fallback về tách theo khoảng trắng nếu không
 """
 import logging
 from typing import List
@@ -19,94 +18,95 @@ except Exception:
 
 def vietnamese_tokenize(text: str) -> List[str]:
     """
-    Tách từ tiếng Việt và nối lại bằng underscore
+    Tách từ tiếng Việt và nối các từ ghép bằng dấu gạch dưới (_)
     
-    Vietnamese is a monosyllabic language. Multi-word phrases like
-    "trí tuệ nhân tạo" (artificial intelligence) should be kept together.
+    Tiếng Việt là ngôn ngữ đơn âm tiết. Các cụm từ nhiều âm tiết như 
+    "trí tuệ nhân tạo" cần được giữ nguyên thành một token.
     
     Args:
-        text: Vietnamese text
+        text: Văn bản tiếng Việt
     
     Returns:
-        List of tokens with compound words joined by underscore
+        Danh sách các token, trong đó từ ghép được nối bằng dấu _
     
-    Example:
+    Ví dụ:
         Input:  "Trí tuệ nhân tạo đang phát triển mạnh"
         Output: ["Trí_tuệ", "nhân_tạo", "đang", "phát_triển", "mạnh"]
     """
-    # Validate input
+    # Kiểm tra đầu vào
     if not text or not isinstance(text, str):
-        logger.debug("Invalid input: text=%r", text)
+        logger.debug("Đầu vào không hợp lệ: text=%r", text)
         return []
     
-    # Prefer using underthesea if available
+    # Ưu tiên sử dụng underthesea nếu có sẵn
     if _UNDER_AVAILABLE and _underthesea is not None:
         try:
-            # Try common call patterns for different underthesea versions.
+            # Thử các cách gọi phổ biến tùy phiên bản underthesea
             result = None
             if hasattr(_underthesea, "word_tokenize"):
                 try:
                     result = _underthesea.word_tokenize(text, format="text")
-                    logger.debug("word_tokenize(format='text') returned: %r (type: %s)", result, type(result).__name__)
+                    logger.debug("word_tokenize(format='text') trả về: %r (kiểu: %s)", result, type(result).__name__)
                 except Exception as e:
-                    logger.debug("word_tokenize(format='text') raised: %s", e)
+                    logger.debug("word_tokenize(format='text') lỗi: %s", e)
                     try:
                         result = _underthesea.word_tokenize(text)
-                        logger.debug("word_tokenize() returned: %r (type: %s)", result, type(result).__name__)
+                        logger.debug("word_tokenize() trả về: %r (kiểu: %s)", result, type(result).__name__)
                     except Exception as e2:
-                        logger.debug("word_tokenize() raised: %s", e2)
+                        logger.debug("word_tokenize() lỗi: %s", e2)
             
-            # older/newer versions may expose `tokenize`
+            # Một số phiên bản cũ/mới có thể dùng tokenize
             if result is None and hasattr(_underthesea, "tokenize"):
                 try:
                     result = _underthesea.tokenize(text)
-                    logger.debug("tokenize() returned: %r (type: %s)", result, type(result).__name__)
+                    logger.debug("tokenize() trả về: %r (kiểu: %s)", result, type(result).__name__)
                 except Exception as e:
-                    logger.debug("tokenize() raised: %s", e)
+                    logger.debug("tokenize() lỗi: %s", e)
 
-            # If result is still None or empty, treat as failure
+            # Nếu không lấy được kết quả thì coi như thất bại
             if not result:
-                logger.warning("underthesea returned empty/None result for text: %r", text[:50])
-                raise RuntimeError("underthesea returned no result")
+                logger.warning("underthesea trả về rỗng/None cho văn bản: %r", text[:50])
+                raise RuntimeError("underthesea không trả về kết quả")
 
-            # result can be a string or an iterable of tokens
+            # Kết quả có thể là chuỗi hoặc danh sách
             if isinstance(result, str):
                 tokens = result.split()
             else:
                 tokens = list(result)
             
-            # Filter out empty tokens
+            # Loại bỏ token rỗng
             tokens = [t for t in tokens if t]
+            # Nối từ ghép bằng dấu _
             tokens = [t.replace(" ", "_") for t in tokens]
-            logger.debug("Tokenized %d tokens from underthesea", len(tokens))
+            logger.debug("Tách được %d token bằng underthesea", len(tokens))
             return tokens
         except Exception as e:
-            logger.warning("underthesea failed (%s), falling back to simple tokenization", e)
+            logger.warning("underthesea thất bại (%s), chuyển sang tách đơn giản", e)
 
-    # Fallback: simple whitespace split
+    # Fallback: tách theo khoảng trắng
     if not _UNDER_AVAILABLE:
-        logger.info("underthesea not available — using simple whitespace tokenizer")
+        logger.info("underthesea không có sẵn — sử dụng tách theo khoảng trắng đơn giản")
     return [tok for tok in text.split() if tok]
 
 
 def preprocess_vietnamese(text: str) -> List[str]:
     """
-    Full preprocessing pipeline cho tiếng Việt
+    Quy trình tiền xử lý đầy đủ dành cho văn bản tiếng Việt
     
-    Steps:
-    1. Normalize text (Unicode, lowercase, whitespace)
-    2. Word segmentation (Vietnamese-specific)
+    Các bước:
+    1. Chuẩn hóa văn bản (Unicode, chữ thường, khoảng trắng)
+    2. Tách từ theo kiểu tiếng Việt
     
     Args:
-        text: Raw Vietnamese text
+        text: Văn bản tiếng Việt gốc
     
     Returns:
-        List of preprocessed tokens
+        Danh sách các token đã được tiền xử lý
     """
-    # 1. Normalize
+    # 1. Chuẩn hóa
     text = normalize_text(text)
     
-    # 2. Word segmentation
+    # 2. Tách từ
     tokens = vietnamese_tokenize(text)
     
     return tokens

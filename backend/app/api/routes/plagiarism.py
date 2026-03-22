@@ -1,8 +1,8 @@
 """
-Plagiarism API routes - SIMPLE VERSION (No Auth)
-2 Features:
-1. POST /compare - So sánh 2 files
-2. POST /check - Check 1 file với corpus
+Các route API phát hiện đạo văn - PHIÊN BẢN ĐƠN GIẢN (Không yêu cầu xác thực)
+2 Tính năng chính:
+1. POST /compare - So sánh 2 file
+2. POST /check - Kiểm tra 1 file với toàn bộ corpus
 3. GET /history - Lịch sử kiểm tra
 """
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends
@@ -21,9 +21,9 @@ from app.db.database import get_db
 from app.db.models import CheckResult, MatchDetail
 from app.services.minio_storage import get_minio_storage
 
-router = APIRouter(prefix="/plagiarism", tags=["Plagiarism Detection"])
+router = APIRouter(prefix="/plagiarism", tags=["Phát hiện đạo văn"])
 
-# Global checker instance
+# Instance checker toàn cục
 _checker = None
 
 def get_checker():
@@ -41,9 +41,8 @@ def get_checker():
     return _checker
 
 
-
 # ═══════════════════════════════════════════════════════════════
-# FEATURE chính: Check 1 file với corpus
+# TÍNH NĂNG CHÍNH: Kiểm tra 1 file với toàn bộ corpus
 # ═══════════════════════════════════════════════════════════════
 
 @router.post("/check")
@@ -52,13 +51,13 @@ async def check_single_file(
     db: Session = Depends(get_db)
 ):
     """
-    Check 1 file với corpus
+    Kiểm tra 1 file với toàn bộ corpus
     
-    - Upload 1 file PDF/DOCX/TXT
-    - So sánh với tất cả documents trong corpus
-    - Trả về danh sách các documents tương tự
+    - Tải lên 1 file PDF/DOCX/TXT
+    - So sánh với tất cả tài liệu trong corpus
+    - Trả về danh sách các tài liệu có độ tương đồng
     
-    Returns:
+    Trả về:
         - is_plagiarized: True/False
         - overall_similarity: % tương đồng cao nhất
         - plagiarism_level: none/low/medium/high
@@ -66,24 +65,24 @@ async def check_single_file(
         - word_count: Số từ trong file
         - processing_time_ms: Thời gian xử lý
     """
-    # Validate
+    # Kiểm tra định dạng file
     allowed = ['.pdf', '.docx', '.txt']
     ext = os.path.splitext(file.filename)[1].lower()
     
     if ext not in allowed:
         raise HTTPException(400, detail=f"Chỉ hỗ trợ: {allowed}")
     
-    # Generate unique file ID
+    # Tạo ID duy nhất cho file
     file_id = str(uuid.uuid4())
     
-    # Create temp file for processing
+    # Tạo thư mục tạm nếu chưa có
     upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'uploads')
     os.makedirs(upload_dir, exist_ok=True)
     safe_filename = f"{file_id}_{file.filename}"
     local_file_path = os.path.join(upload_dir, safe_filename)
     
     try:
-        # Save file temporarily for processing
+        # Lưu file tạm thời để xử lý
         content = await file.read()
         with open(local_file_path, 'wb') as f:
             f.write(content)
@@ -91,7 +90,7 @@ async def check_single_file(
         checker = get_checker()
         result = checker.check_against_corpus(local_file_path, file.filename)
         
-        # Upload to MinIO for permanent storage
+        # Upload lên MinIO để lưu trữ lâu dài
         minio_path = None
         minio_storage = get_minio_storage()
         if minio_storage.is_available():
@@ -100,13 +99,13 @@ async def check_single_file(
                 object_name=f"checks/{file_id}/{file.filename}"
             )
             if minio_path:
-                # Delete local file after successful MinIO upload
+                # Xóa file cục bộ sau khi upload thành công lên MinIO
                 os.unlink(local_file_path)
                 local_file_path = None
         
-        # Save to PostgreSQL
+        # Lưu kết quả vào PostgreSQL
         try:
-            # Create CheckResult record
+            # Tạo bản ghi CheckResult
             check_result = CheckResult(
                 id=uuid.UUID(file_id),
                 query_filename=file.filename,
@@ -115,13 +114,13 @@ async def check_single_file(
                 match_count=len(result.matches),
                 word_count=result.word_count,
                 processing_time_ms=result.processing_time_ms,
-                file_path=minio_path or local_file_path,  # Store MinIO path or local path
+                file_path=minio_path or local_file_path,  # Lưu đường dẫn MinIO hoặc cục bộ
                 status='completed',
                 completed_at=datetime.utcnow()
             )
             db.add(check_result)
             
-            # Create MatchDetail records for each match
+            # Tạo các bản ghi MatchDetail cho từng đoạn khớp
             for m in result.matches:
                 match_detail = MatchDetail(
                     result_id=uuid.UUID(file_id),
@@ -147,10 +146,10 @@ async def check_single_file(
             db.commit()
         except Exception as db_error:
             db.rollback()
-            print(f"DB save error: {db_error}")
+            print(f"Lỗi lưu database: {db_error}")
         
         response = {
-            "id": file_id,  # Include ID for frontend reference
+            "id": file_id,  # Trả về ID để frontend tham chiếu
             "filename": file.filename,
             "is_plagiarized": result.is_plagiarized,
             "overall_similarity": round(result.overall_similarity * 100, 2),
@@ -183,19 +182,19 @@ async def check_single_file(
         
         return response
     except Exception as e:
-        # Clean up local file if processing failed
+        # Dọn dẹp file cục bộ nếu xử lý thất bại
         if local_file_path and os.path.exists(local_file_path):
             os.unlink(local_file_path)
         raise
 
 
 # ═══════════════════════════════════════════════════════════════
-# CORPUS INFO
+# THÔNG TIN CORPUS
 # ═══════════════════════════════════════════════════════════════
 
 @router.get("/corpus/stats")
 async def get_corpus_stats():
-    """Get corpus statistics"""
+    """Lấy thống kê corpus"""
     checker = get_checker()
     stats = checker.get_corpus_stats()
     return {
@@ -206,7 +205,7 @@ async def get_corpus_stats():
 
 
 # ═══════════════════════════════════════════════════════════════
-# HISTORY (PostgreSQL)
+# LỊCH SỬ KIỂM TRA (PostgreSQL)
 # ═══════════════════════════════════════════════════════════════
 
 @router.get("/history")
@@ -216,13 +215,13 @@ async def get_history(
     db: Session = Depends(get_db)
 ):
     """
-    Get plagiarism check history from PostgreSQL
+    Lấy lịch sử kiểm tra đạo văn từ PostgreSQL
     """
     try:
-        # Calculate offset
+        # Tính offset
         offset = (page - 1) * page_size
         
-        # Query check_results ordered by created_at desc
+        # Lấy tổng số bản ghi
         total = db.query(CheckResult).count()
         results = db.query(CheckResult)\
             .order_by(CheckResult.created_at.desc())\
@@ -251,7 +250,7 @@ async def get_history(
             "page_size": page_size
         }
     except Exception as e:
-        print(f"History error: {e}")
+        print(f"Lỗi lấy lịch sử: {e}")
         return {
             "items": [],
             "total": 0,
@@ -262,13 +261,13 @@ async def get_history(
 
 @router.get("/history/{item_id}")
 async def get_history_detail(item_id: str, db: Session = Depends(get_db)):
-    """Get detailed history item with match details"""
+    """Lấy chi tiết một mục lịch sử cùng với thông tin các đoạn khớp"""
     try:
         result = db.query(CheckResult).filter(CheckResult.id == uuid.UUID(item_id)).first()
         if not result:
-            raise HTTPException(404, detail="History item not found")
+            raise HTTPException(404, detail="Không tìm thấy mục lịch sử")
         
-        # Get match details
+        # Lấy chi tiết các đoạn khớp
         matches = []
         for md in result.match_details:
             match_data = {
@@ -300,27 +299,27 @@ async def get_history_detail(item_id: str, db: Session = Depends(get_db)):
 
 @router.delete("/history/{item_id}")
 async def delete_history_item(item_id: str, db: Session = Depends(get_db)):
-    """Delete a single history item"""
+    """Xóa một mục lịch sử đơn lẻ"""
     try:
         result = db.query(CheckResult).filter(CheckResult.id == uuid.UUID(item_id)).first()
         if not result:
-            raise HTTPException(404, detail="History item not found")
+            raise HTTPException(404, detail="Không tìm thấy mục lịch sử")
         
-        # Delete file - check if it's MinIO path or local path
+        # Xóa file liên quan - kiểm tra xem là đường dẫn MinIO hay cục bộ
         if result.file_path:
             if result.file_path.startswith('checks/'):
-                # MinIO path
+                # Đường dẫn MinIO
                 minio_storage = get_minio_storage()
                 if minio_storage.is_available():
                     minio_storage.delete_file(result.file_path)
             elif os.path.exists(result.file_path):
-                # Local path
+                # Đường dẫn cục bộ
                 os.unlink(result.file_path)
         
         db.delete(result)
         db.commit()
         
-        return {"message": "History item deleted"}
+        return {"message": "Đã xóa mục lịch sử"}
     except HTTPException:
         raise
     except Exception as e:
@@ -330,19 +329,19 @@ async def delete_history_item(item_id: str, db: Session = Depends(get_db)):
 
 @router.get("/history/{item_id}/download")
 async def download_history_file(item_id: str, db: Session = Depends(get_db)):
-    """Download the original file from history"""
+    """Tải xuống file gốc từ lịch sử kiểm tra"""
     from fastapi.responses import FileResponse, StreamingResponse
     from io import BytesIO
     
     try:
         result = db.query(CheckResult).filter(CheckResult.id == uuid.UUID(item_id)).first()
         if not result:
-            raise HTTPException(404, detail="History item not found")
+            raise HTTPException(404, detail="Không tìm thấy mục lịch sử")
         
         if not result.file_path:
-            raise HTTPException(404, detail="No file associated with this check")
+            raise HTTPException(404, detail="Không có file liên quan đến lần kiểm tra này")
         
-        # Check if it's a MinIO path
+        # Kiểm tra xem là đường dẫn MinIO
         if result.file_path.startswith('checks/'):
             minio_storage = get_minio_storage()
             if minio_storage.is_available():
@@ -355,9 +354,9 @@ async def download_history_file(item_id: str, db: Session = Depends(get_db)):
                             'Content-Disposition': f'attachment; filename="{result.query_filename or "document.txt"}"'
                         }
                     )
-            raise HTTPException(404, detail="File not found in MinIO storage")
+            raise HTTPException(404, detail="Không tìm thấy file trong MinIO")
         
-        # Local file path
+        # Đường dẫn file cục bộ
         if os.path.exists(result.file_path):
             return FileResponse(
                 path=result.file_path,
@@ -365,7 +364,7 @@ async def download_history_file(item_id: str, db: Session = Depends(get_db)):
                 media_type='application/octet-stream'
             )
         else:
-            raise HTTPException(404, detail="File no longer exists on server.")
+            raise HTTPException(404, detail="File không còn tồn tại trên server.")
     except HTTPException:
         raise
     except Exception as e:
@@ -374,9 +373,9 @@ async def download_history_file(item_id: str, db: Session = Depends(get_db)):
 
 @router.delete("/history")
 async def clear_history(db: Session = Depends(get_db)):
-    """Clear all history"""
+    """Xóa toàn bộ lịch sử kiểm tra"""
     try:
-        # Get all results to delete files
+        # Lấy tất cả bản ghi để xóa file
         results = db.query(CheckResult).all()
         minio_storage = get_minio_storage()
         
@@ -384,21 +383,19 @@ async def clear_history(db: Session = Depends(get_db)):
             if r.file_path:
                 try:
                     if r.file_path.startswith('checks/'):
-                        # MinIO path
+                        # Đường dẫn MinIO
                         if minio_storage.is_available():
                             minio_storage.delete_file(r.file_path)
                     elif os.path.exists(r.file_path):
-                        # Local path
+                        # Đường dẫn cục bộ
                         os.unlink(r.file_path)
                 except:
                     pass
         
-        # Delete all records (MatchDetails will cascade)
+        # Xóa tất cả bản ghi (MatchDetails sẽ tự động xóa theo cascade)
         db.query(CheckResult).delete()
         db.commit()
-        return {"message": "History cleared"}
+        return {"message": "Đã xóa toàn bộ lịch sử"}
     except Exception as e:
         db.rollback()
         raise HTTPException(500, detail=str(e))
-
-

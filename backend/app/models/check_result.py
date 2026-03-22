@@ -1,5 +1,6 @@
 """
-Check result models
+Các model Pydantic dùng cho kết quả kiểm tra đạo văn (check result)
+Bao gồm: trạng thái công việc, đoạn khớp, chi tiết khớp, và các model response/create
 """
 from pydantic import BaseModel, UUID4
 from datetime import datetime
@@ -9,16 +10,16 @@ from decimal import Decimal
 
 
 class CheckStatus(str, Enum):
-    """Check job status"""
-    PENDING = "pending"
-    PROCESSING = "processing"
-    DONE = "done"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
+    """Trạng thái công việc kiểm tra đạo văn"""
+    PENDING = "pending"      # Đang chờ xử lý
+    PROCESSING = "processing"  # Đang xử lý
+    DONE = "done"            # Hoàn tất
+    FAILED = "failed"        # Thất bại
+    CANCELLED = "cancelled"  # Đã hủy
 
 
 class MatchSegment(BaseModel):
-    """Matched segment in diff"""
+    """Một đoạn văn bản khớp giữa tài liệu query và tài liệu nguồn"""
     query_start: int
     query_end: int
     source_start: int
@@ -29,7 +30,7 @@ class MatchSegment(BaseModel):
 
 
 class MatchDetail(BaseModel):
-    """Match detail for a single source document"""
+    """Chi tiết khớp với một tài liệu nguồn cụ thể"""
     source_doc_id: UUID4
     source_doc_title: Optional[str]
     similarity_score: Decimal
@@ -37,18 +38,18 @@ class MatchDetail(BaseModel):
 
 
 class CheckResultBase(BaseModel):
-    """Base check result model"""
+    """Model cơ sở cho kết quả kiểm tra"""
     query_filename: str
 
 
 class CheckResultCreate(CheckResultBase):
-    """Check result creation model"""
+    """Model dùng để tạo mới bản ghi kết quả kiểm tra"""
     user_id: UUID4
     query_doc_id: Optional[UUID4] = None
 
 
 class CheckResultInDB(CheckResultBase):
-    """Check result model in database"""
+    """Model đại diện cho bản ghi kết quả kiểm tra trong cơ sở dữ liệu"""
     id: UUID4
     user_id: UUID4
     query_doc_id: Optional[UUID4]
@@ -65,7 +66,7 @@ class CheckResultInDB(CheckResultBase):
 
 
 class CheckResult(CheckResultBase):
-    """Check result model for API responses"""
+    """Model dùng cho phản hồi API (response)"""
     id: UUID4
     status: CheckStatus
     overall_similarity: Optional[Decimal]

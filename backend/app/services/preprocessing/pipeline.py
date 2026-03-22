@@ -1,24 +1,24 @@
 """
-Preprocessing pipeline - Main entry point
-Orchestrates all preprocessing steps
+Pipeline tiền xử lý - Điểm vào chính của hệ thống
+Điều phối toàn bộ các bước tiền xử lý
 """
 from typing import Tuple, Dict, List
 from .file_validator import validate_pdf, FileValidationError
 from .pdf_extractor import extract_text_with_fallback
 from .vietnamese_nlp import preprocess_vietnamese
-import docx  # python-docx
+import docx  # Thư viện python-docx
 import re
 
 
 def extract_docx(file_path: str) -> str:
     """
-    Extract text from DOCX file
+    Trích xuất văn bản từ file DOCX
     
     Args:
-        file_path: Path to DOCX file
+        file_path: Đường dẫn tới file DOCX
     
     Returns:
-        Extracted text
+        Văn bản đã trích xuất
     """
     doc = docx.Document(file_path)
     full_text = []
@@ -31,65 +31,65 @@ def extract_docx(file_path: str) -> str:
 
 def strip_latex_commands(text: str) -> str:
     """
-    Loại bỏ LaTeX commands, giữ lại nội dung text
+    Loại bỏ các lệnh LaTeX, giữ lại nội dung văn bản
     
     Args:
-        text: LaTeX source code
+        text: Mã nguồn LaTeX
     
     Returns:
-        Text without LaTeX commands
+        Văn bản đã loại bỏ lệnh LaTeX
     """
-    # Remove comments
+    # Xóa comment trong LaTeX
     text = re.sub(r'%.*$', '', text, flags=re.MULTILINE)
     
-    # Remove \command{} but keep content
+    # Xóa \command{} nhưng giữ lại nội dung bên trong
     text = re.sub(r'\\[a-zA-Z]+\{([^}]*)\}', r'\1', text)
     
-    # Remove standalone commands
+    # Xóa các lệnh standalone (không có {})
     text = re.sub(r'\\[a-zA-Z]+', '', text)
     
-    # Remove math blocks, replace with token
+    # Xóa block công thức toán, thay bằng token
     text = re.sub(r'\$\$.*?\$\$', ' <EQUATION> ', text, flags=re.DOTALL)
     text = re.sub(r'\$.*?\$', ' <EQUATION> ', text)
     
-    # Remove braces
+    # Xóa dấu ngoặc {}
     text = re.sub(r'[{}]', '', text)
     
     return text
 
 
 class PreprocessingPipeline:
-    """Main entry point cho preprocessing"""
+    """Điểm vào chính của module tiền xử lý"""
     
     def __init__(self):
         self.supported_formats = ['pdf', 'docx', 'txt', 'tex']
     
     def process(self, file_path: str, file_type: str) -> Tuple[List[str], Dict]:
         """
-        Process file và trả về tokens
+        Xử lý file và trả về tokens
         
         Args:
-            file_path: Path to file
-            file_type: File extension (pdf, docx, txt, tex)
+            file_path: Đường dẫn tới file
+            file_type: Loại file (pdf, docx, txt, tex)
         
         Returns:
-            Tuple of:
-                - tokens: List các từ đã tokenize
-                - metadata: Dict chứa thông tin extraction
+            Tuple gồm:
+                - tokens: Danh sách các từ đã tokenize
+                - metadata: Dict chứa thông tin trích xuất
         
         Raises:
-            ValueError: If file type not supported
-            FileValidationError: If file validation fails
+            ValueError: Nếu định dạng file không được hỗ trợ
+            FileValidationError: Nếu file không hợp lệ
         """
         metadata = {"file_type": file_type, "method": None}
         
         if file_type == 'pdf':
-            # Validate first
+            # Bước 1: Xác thực file
             validation = validate_pdf(file_path)
             metadata["page_count"] = validation["page_count"]
             metadata["is_scanned"] = validation["is_scanned"]
             
-            # Extract text
+            # Bước 2: Trích xuất văn bản
             text, method = extract_text_with_fallback(file_path)
             metadata["method"] = method
             
@@ -101,17 +101,17 @@ class PreprocessingPipeline:
             with open(file_path, 'r', encoding='utf-8') as f:
                 raw = f.read()
             text = strip_latex_commands(raw)
-            metadata["method"] = "latex-strip"
+            metadata["method"] = "latex-loại-bỏ"
             
         elif file_type == 'txt':
             with open(file_path, 'r', encoding='utf-8') as f:
                 text = f.read()
-            metadata["method"] = "direct"
+            metadata["method"] = "đọc-trực-tiếp"
         
         else:
-            raise ValueError(f"Unsupported file type: {file_type}")
+            raise ValueError(f"Định dạng file không hỗ trợ: {file_type}")
         
-        # Normalize and tokenize
+        # Chuẩn hóa và tokenize tiếng Việt
         tokens = preprocess_vietnamese(text)
         metadata["token_count"] = len(tokens)
         

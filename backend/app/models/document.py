@@ -1,5 +1,6 @@
 """
-Document models
+Các model Pydantic dùng cho tài liệu (document)
+Bao gồm: trạng thái xử lý tài liệu, model cơ sở, tạo mới, lưu trong DB và phản hồi API
 """
 from pydantic import BaseModel, UUID4
 from datetime import datetime
@@ -8,21 +9,21 @@ from enum import Enum
 
 
 class DocumentStatus(str, Enum):
-    """Document processing status"""
-    PROCESSING = "processing"
-    INDEXED = "indexed"
-    FAILED = "failed"
+    """Trạng thái xử lý của tài liệu"""
+    PROCESSING = "processing"   # Đang xử lý (trích xuất văn bản, lập chỉ mục, v.v.)
+    INDEXED = "indexed"         # Đã hoàn tất lập chỉ mục (có thể dùng để so sánh)
+    FAILED = "failed"           # Xử lý thất bại
 
 
 class DocumentBase(BaseModel):
-    """Base document model"""
+    """Model cơ sở cho thông tin tài liệu"""
     title: Optional[str] = None
     original_filename: str
-    language: str = "vi"
+    language: str = "vi"        # Mặc định là tiếng Việt
 
 
 class DocumentCreate(DocumentBase):
-    """Document creation model"""
+    """Model dùng để tạo mới bản ghi tài liệu"""
     s3_path: str
     file_hash_sha256: str
     file_size_bytes: int
@@ -30,7 +31,7 @@ class DocumentCreate(DocumentBase):
 
 
 class DocumentInDB(DocumentBase):
-    """Document model in database"""
+    """Model đại diện cho bản ghi tài liệu trong cơ sở dữ liệu"""
     id: UUID4
     owner_id: Optional[UUID4]
     s3_path: str
@@ -49,7 +50,7 @@ class DocumentInDB(DocumentBase):
 
 
 class Document(DocumentBase):
-    """Document model for API responses"""
+    """Model dùng cho phản hồi API (response)"""
     id: UUID4
     status: DocumentStatus
     word_count: Optional[int]

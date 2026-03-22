@@ -1,46 +1,46 @@
 """
-Pydantic schemas for API requests/responses
+Các schema Pydantic dùng cho request/response của API
 """
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
-# Auth schemas
+# Schema liên quan đến xác thực (Auth)
 class UserRegister(BaseModel):
-    """User registration request"""
+    """Yêu cầu đăng ký người dùng"""
     email: EmailStr
     password: str
 
 
 class UserLogin(BaseModel):
-    """User login request"""
+    """Yêu cầu đăng nhập"""
     email: EmailStr
     password: str
 
 
 class Token(BaseModel):
-    """Token response"""
+    """Phản hồi chứa token"""
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
 
 class TokenRefresh(BaseModel):
-    """Token refresh request"""
+    """Yêu cầu làm mới token"""
     refresh_token: str
 
 
-# Check schemas
+# Schema liên quan đến kiểm tra đạo văn (Check)
 class CheckUploadResponse(BaseModel):
-    """Upload response"""
+    """Phản hồi sau khi tải file lên"""
     job_id: str
     status: str
     message: str
 
 
 class JobStatus(BaseModel):
-    """Job status response"""
+    """Phản hồi trạng thái công việc"""
     job_id: str
     status: str  # pending, processing, done, failed, cancelled
     progress: Optional[int] = None  # 0-100
@@ -51,7 +51,7 @@ class JobStatus(BaseModel):
 
 
 class MatchSegment(BaseModel):
-    """Matched segment in diff"""
+    """Đoạn văn bản khớp (trong so sánh diff)"""
     query_start: int
     query_end: int
     source_start: int
@@ -64,7 +64,7 @@ class MatchSegment(BaseModel):
 
 
 class MatchDetail(BaseModel):
-    """Match detail for a source document"""
+    """Chi tiết một tài liệu nguồn khớp"""
     source_doc_id: str
     source_doc_title: Optional[str]
     similarity_score: float
@@ -73,7 +73,7 @@ class MatchDetail(BaseModel):
 
 
 class CheckResult(BaseModel):
-    """Check result response"""
+    """Phản hồi kết quả kiểm tra đạo văn"""
     job_id: str
     status: str
     query_filename: str
@@ -85,9 +85,9 @@ class CheckResult(BaseModel):
     completed_at: Optional[datetime] = None
 
 
-# Error schema
+# Schema xử lý lỗi
 class ErrorDetail(BaseModel):
-    """Error detail"""
+    """Chi tiết lỗi"""
     code: str
     message: str
     details: Optional[Dict[str, Any]] = None
@@ -95,5 +95,5 @@ class ErrorDetail(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """Error response"""
+    """Phản hồi lỗi chuẩn"""
     error: ErrorDetail

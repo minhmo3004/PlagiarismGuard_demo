@@ -1,45 +1,45 @@
 """
-MinHash module
-Creates MinHash signatures from shingle sets
+Module MinHash
+Tạo chữ ký MinHash từ tập hợp shingles để ước lượng độ tương đồng Jaccard nhanh chóng
 """
 from datasketch import MinHash
 from typing import Set
 
-# CRITICAL: These values MUST be fixed for reproducibility
-MINHASH_SEED = 42  # PHẢI cố định, không random
-MINHASH_PERMUTATIONS = 128  # Error ≈ 1/√128 ≈ 8.8%
+# QUAN TRỌNG: Các giá trị này PHẢI cố định để đảm bảo tính tái lập (reproducibility)
+MINHASH_SEED = 42           # Seed cố định, không được random
+MINHASH_PERMUTATIONS = 128  # Số lượng permutation - sai số ước lượng ≈ 1/√128 ≈ 8.8%
 
 
 def create_minhash_signature(shingles: Set[int]) -> MinHash:
     """
-    Tạo MinHash signature từ set shingles
+    Tạo chữ ký MinHash từ tập hợp shingles
     
-    MinHash compresses a set of thousands of shingles into a fixed-size signature.
-    Mathematical property: P(MinHash(A) = MinHash(B)) = Jaccard(A, B)
+    MinHash nén một tập hợp hàng nghìn shingles thành một chữ ký có kích thước cố định.
+    Tính chất toán học: Xác suất MinHash(A) = MinHash(B) ≈ Jaccard(A, B)
     
     Args:
-        shingles: Set các shingle hash values (32-bit integers)
+        shingles: Tập hợp các giá trị hash của shingles (số nguyên 32-bit)
     
     Returns:
-        MinHash object với signature
+        Đối tượng MinHash chứa chữ ký đã tạo
     
     Raises:
-        ValueError: If shingle set is empty
+        ValueError: Nếu tập shingles rỗng
     
-    Example:
+    Ví dụ:
         shingles = {123456, 789012, 345678}
         signature = create_minhash_signature(shingles)
-        # signature is a MinHash object with 128 permutations
+        # signature là một MinHash object với 128 permutations
     """
     if not shingles:
-        raise ValueError("Shingle set cannot be empty")
+        raise ValueError("Tập hợp shingles không được rỗng")
     
-    # Create MinHash with fixed seed for reproducibility
+    # Tạo MinHash với seed cố định để đảm bảo kết quả lặp lại được
     m = MinHash(num_perm=MINHASH_PERMUTATIONS, seed=MINHASH_SEED)
     
     for shingle in shingles:
-        # Encode to bytes for hashing
-        # MinHash.update() expects bytes
+        # Chuyển thành bytes để update vào MinHash
+        # MinHash.update() yêu cầu dữ liệu dạng bytes
         m.update(str(shingle).encode('utf-8'))
     
     return m
@@ -47,17 +47,17 @@ def create_minhash_signature(shingles: Set[int]) -> MinHash:
 
 def estimate_jaccard(sig1: MinHash, sig2: MinHash) -> float:
     """
-    Ước lượng Jaccard similarity từ 2 signatures
+    Ước lượng độ tương đồng Jaccard giữa hai chữ ký MinHash
     
     Args:
-        sig1: First MinHash signature
-        sig2: Second MinHash signature
+        sig1: Chữ ký MinHash thứ nhất
+        sig2: Chữ ký MinHash thứ hai
     
     Returns:
-        Estimated Jaccard similarity (0.0 to 1.0)
+        Giá trị Jaccard ước lượng (trong khoảng 0.0 đến 1.0)
     
-    Example:
+    Ví dụ:
         jaccard = estimate_jaccard(sig1, sig2)
-        # jaccard ≈ 0.75 means 75% similar
+        # jaccard ≈ 0.75 nghĩa là độ tương đồng ước tính khoảng 75%
     """
     return sig1.jaccard(sig2)

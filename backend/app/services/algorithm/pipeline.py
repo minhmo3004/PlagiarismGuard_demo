@@ -1,6 +1,6 @@
 """
-Algorithm Pipeline
-Orchestrates preprocessing, shingling, MinHash, and LSH
+Pipeline thuật toán chính
+Điều phối toàn bộ quy trình: tiền xử lý → tạo shingles → MinHash → LSH
 """
 from typing import Dict
 from ..preprocessing.pipeline import PreprocessingPipeline
@@ -11,21 +11,21 @@ from .lsh_index import LSHIndex
 
 class PlagiarismPipeline:
     """
-    Main pipeline từ file đến LSH index
+    Pipeline chính từ file tài liệu đến chỉ mục LSH
     
-    Workflow:
-    1. Preprocess file (extract text, tokenize)
-    2. Create shingles (k=7)
-    3. Create MinHash signature (P=128, seed=42)
-    4. Insert/Query LSH index (threshold=0.4)
+    Quy trình hoạt động:
+    1. Tiền xử lý file (trích xuất văn bản, tokenize)
+    2. Tạo shingles (k=7)
+    3. Tạo chữ ký MinHash (128 permutations, seed=42)
+    4. Chèn hoặc truy vấn chỉ mục LSH (ngưỡng tương đồng mặc định 0.4)
     """
     
     def __init__(self, threshold: float = 0.4):
         """
-        Initialize pipeline
+        Khởi tạo pipeline
         
         Args:
-            threshold: LSH similarity threshold (default 0.4)
+            threshold: Ngưỡng tương đồng Jaccard cho LSH (mặc định 0.4)
         """
         self.preprocessor = PreprocessingPipeline()
         self.lsh_index = LSHIndex(threshold=threshold)
@@ -38,23 +38,24 @@ class PlagiarismPipeline:
         doc_id: str
     ) -> Dict:
         """
-        Index một document vào LSH
+        Lập chỉ mục (index) một tài liệu vào LSH corpus
         
         Args:
-            file_path: Path to document file
-            file_type: File extension (pdf, docx, txt, tex)
-            doc_id: Unique document identifier
+            file_path: Đường dẫn đến file tài liệu
+            file_type: Đuôi file (pdf, docx, txt, tex)
+            doc_id: Mã định danh duy nhất của tài liệu
         
         Returns:
-            Metadata về quá trình indexing
+            Dictionary chứa metadata về quá trình lập chỉ mục
         
-        Example:
+        Ví dụ:
             metadata = pipeline.index_document(
                 "thesis.pdf", 
                 "pdf", 
                 "doc_123"
             )
-            # metadata = {
+            # Kết quả ví dụ:
+            # {
             #     "file_type": "pdf",
             #     "method": "native",
             #     "page_count": 50,
@@ -62,17 +63,17 @@ class PlagiarismPipeline:
             #     "shingle_count": 14994
             # }
         """
-        # 1. Preprocess
+        # 1. Tiền xử lý tài liệu
         tokens, metadata = self.preprocessor.process(file_path, file_type)
         
-        # 2. Create shingles
+        # 2. Tạo shingles từ tokens
         shingles = create_shingles(tokens, k=7)
         metadata["shingle_count"] = len(shingles)
         
-        # 3. Create MinHash signature
+        # 3. Tạo chữ ký MinHash
         signature = create_minhash_signature(shingles)
         
-        # 4. Insert vào LSH
+        # 4. Chèn vào chỉ mục LSH
         self.lsh_index.insert(doc_id, signature)
         
         return metadata
@@ -84,19 +85,20 @@ class PlagiarismPipeline:
         top_k: int = 10
     ) -> Dict:
         """
-        Check một document với corpus
+        Kiểm tra đạo văn cho một tài liệu query so với toàn bộ corpus
         
         Args:
-            file_path: Path to query document
-            file_type: File extension
-            top_k: Maximum number of similar documents to return
+            file_path: Đường dẫn đến file tài liệu cần kiểm tra
+            file_type: Đuôi file
+            top_k: Số lượng tài liệu tương đồng tối đa trả về (mặc định 10)
         
         Returns:
-            Dict chứa matches và metadata
+            Dictionary chứa metadata và danh sách candidate
         
-        Example:
+        Ví dụ:
             result = pipeline.check_document("query.pdf", "pdf", top_k=5)
-            # result = {
+            # Kết quả ví dụ:
+            # {
             #     "metadata": {...},
             #     "candidates": [
             #         ("doc_123", 0.85),
@@ -105,14 +107,14 @@ class PlagiarismPipeline:
             #     "candidate_count": 2
             # }
         """
-        # 1. Preprocess
+        # 1. Tiền xử lý tài liệu query
         tokens, metadata = self.preprocessor.process(file_path, file_type)
         
-        # 2-3. Shingle + MinHash
+        # 2-3. Tạo shingles và MinHash signature
         shingles = create_shingles(tokens, k=7)
         signature = create_minhash_signature(shingles)
         
-        # 4. Query LSH
+        # 4. Truy vấn LSH để tìm candidate
         candidates = self.lsh_index.query(signature, top_k=top_k)
         
         return {
@@ -122,5 +124,10 @@ class PlagiarismPipeline:
         }
     
     def get_index_stats(self) -> Dict:
-        """Get LSH index statistics"""
+        """
+        Lấy thông tin thống kê của chỉ mục LSH
+        
+        Returns:
+            Dictionary chứa số lượng tài liệu, ngưỡng, số permutation, v.v.
+        """
         return self.lsh_index.get_stats()

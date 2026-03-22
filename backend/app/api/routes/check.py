@@ -1,6 +1,6 @@
 """
-Plagiarism check routes
-Upload, status, result, cancel, retry, history
+Các route kiểm tra đạo văn
+Tải lên, trạng thái, kết quả, hủy, thử lại, lịch sử
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from app.api.schemas import CheckUploadResponse, JobStatus, CheckResult
@@ -17,7 +17,7 @@ from app.services.storage import S3Storage
 from app.services.document_service import DocumentService
 from app.workers.tasks import process_document
 
-router = APIRouter(prefix="/check", tags=["Plagiarism Check"])
+router = APIRouter(prefix="/check", tags=["Kiểm tra đạo văn"])
 
 
 @router.post("/upload", response_model=CheckUploadResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -26,14 +26,14 @@ async def upload_document(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Upload document and start plagiarism check
+    Tải lên tài liệu và bắt đầu kiểm tra đạo văn
     
-    - Validates file format and size
-    - Checks user quota
-    - Queues background job
-    - Returns job_id for status polling
+    - Kiểm tra định dạng và kích thước file
+    - Kiểm tra hạn mức (quota) của người dùng
+    - Đưa công việc vào hàng đợi xử lý nền
+    - Trả về job_id để theo dõi trạng thái
     """
-    # Check quota
+    # Kiểm tra hạn mức sử dụng
     if not await check_user_quota(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -43,7 +43,7 @@ async def upload_document(
             }
         )
     
-    # Validate file format
+    # Kiểm tra định dạng file
     allowed_extensions = [".pdf", ".docx", ".txt", ".tex"]
     file_ext = "." + file.filename.split(".")[-1].lower()
     
@@ -56,26 +56,26 @@ async def upload_document(
             }
         )
     
-    # Validate file size (20MB max)
-    # TODO: Read file size from upload
+    # Kiểm tra kích thước file (tối đa 20MB)
+    # TODO: Đọc kích thước file từ upload
     # if file.size > 20 * 1024 * 1024:
     #     raise HTTPException(413, detail={"code": "FILE_TOO_LARGE"})
     
-    # Generate job ID
+    # Tạo ID cho job
     job_id = str(uuid.uuid4())
 
-    # Read file bytes
+    # Đọc nội dung file
     content = await file.read()
 
-    # Compute SHA256
+    # Tính hash SHA256
     file_hash = DocumentService.compute_sha256(content)
 
-    # Upload to MinIO
+    # Upload lên MinIO
     storage = S3Storage()
     object_name = f"uploads/{job_id}_{file.filename}"
     s3_path = storage.upload_bytes(content, object_name)
 
-    # Save document metadata to Postgres
+    # Lưu metadata tài liệu vào PostgreSQL
     db: Session = SessionLocal()
     try:
         doc = DocumentService.create_document(
@@ -87,7 +87,7 @@ async def upload_document(
             file_size=len(content)
         )
 
-        # Create a check job record in DB (use job_id as CheckResult.id)
+        # Tạo bản ghi công việc kiểm tra trong DB (dùng job_id làm CheckResult.id)
         from app.db import models
         result = models.CheckResult(
             id=job_id,
@@ -102,11 +102,11 @@ async def upload_document(
     finally:
         db.close()
 
-    # Queue background processing via Celery
+    # Đưa vào hàng đợi xử lý nền bằng Celery
     try:
         process_document.delay(job_id, str(doc.id), file_ext)
     except Exception:
-        # If Celery not configured, ignore and leave as pending
+        # Nếu Celery chưa được cấu hình, bỏ qua và để trạng thái pending
         pass
 
     return CheckUploadResponse(
@@ -122,13 +122,13 @@ async def get_job_status(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get job status for polling
+    Lấy trạng thái công việc (dùng để polling)
     
-    - Returns current status (pending, processing, done, failed)
-    - Includes progress percentage if processing
-    - Includes error message if failed
+    - Trả về trạng thái hiện tại (pending, processing, done, failed)
+    - Bao gồm phần trăm tiến độ nếu đang xử lý
+    - Bao gồm thông báo lỗi nếu thất bại
     """
-    # TODO: Get job from database
+    # TODO: Lấy thông tin job từ database
     # job = await get_job(job_id)
     # if not job:
     #     raise HTTPException(404, detail={"code": "JOB_NOT_FOUND"})
@@ -150,12 +150,12 @@ async def get_check_result(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get detailed check result
+    Lấy kết quả kiểm tra chi tiết
     
-    - Only available when status = 'done'
-    - Returns similarity scores and matched segments
+    - Chỉ khả dụng khi status = 'done'
+    - Trả về điểm tương đồng và các đoạn khớp
     """
-    # TODO: Get job and result from database
+    # TODO: Lấy job và kết quả từ database
     # job = await get_job(job_id)
     # if not job:
     #     raise HTTPException(404, detail={"code": "JOB_NOT_FOUND"})
@@ -184,13 +184,13 @@ async def cancel_job(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Cancel a pending or processing job
+    Hủy công việc đang chờ hoặc đang xử lý
     
-    - Revokes Celery task
-    - Updates status to 'cancelled'
-    - Cleans up temp files
+    - Thu hồi task Celery
+    - Cập nhật trạng thái thành 'cancelled'
+    - Dọn dẹp file tạm
     """
-    # TODO: Get job from database
+    # TODO: Lấy job từ database
     # job = await get_job(job_id)
     # if not job:
     #     raise HTTPException(404, detail={"code": "JOB_NOT_FOUND"})
@@ -199,11 +199,11 @@ async def cancel_job(
     # if job.status not in ["pending", "processing"]:
     #     raise HTTPException(400, detail={"code": "INVALID_JOB_STATUS"})
     
-    # TODO: Revoke Celery task
+    # TODO: Thu hồi task Celery
     # from app.workers.celery_app import app
     # app.control.revoke(job.celery_task_id, terminate=True)
     
-    # TODO: Update status
+    # TODO: Cập nhật trạng thái
     # await update_job_status(job_id, {"status": "cancelled"})
     
     return {"status": "cancelled", "job_id": job_id}
@@ -215,13 +215,13 @@ async def retry_failed_job(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Retry a failed job
+    Thử lại công việc đã thất bại
     
-    - Only for jobs with status = 'failed' and can_retry = True
-    - Checks quota again
-    - Re-queues the job
+    - Chỉ áp dụng cho job có status = 'failed' và can_retry = True
+    - Kiểm tra lại quota
+    - Đưa lại job vào hàng đợi
     """
-    # TODO: Get job from database
+    # TODO: Lấy job từ database
     # job = await get_job(job_id)
     # if not job:
     #     raise HTTPException(404, detail={"code": "JOB_NOT_FOUND"})
@@ -232,14 +232,14 @@ async def retry_failed_job(
     # if not job.can_retry:
     #     raise HTTPException(400, detail={"code": "CANNOT_RETRY"})
     
-    # Check quota
+    # Kiểm tra quota
     if not await check_user_quota(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "QUOTA_EXCEEDED"}
         )
     
-    # TODO: Reset job status and re-queue
+    # TODO: Reset trạng thái job và đưa lại vào hàng đợi
     # await update_job_status(job_id, {"status": "pending", "retry_count": 0})
     # process_document.delay(job_id, job.file_path)
     
@@ -256,19 +256,19 @@ async def delete_job(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Delete a job and its results
+    Xóa công việc và kết quả liên quan
     
-    - Removes job record
-    - Cleans up files
+    - Xóa bản ghi công việc
+    - Dọn dẹp các file liên quan
     """
-    # TODO: Get job and delete
+    # TODO: Lấy job và xóa
     # job = await get_job(job_id)
     # if not job:
     #     raise HTTPException(404, detail={"code": "JOB_NOT_FOUND"})
     # if job.user_id != current_user.id:
     #     raise HTTPException(403, detail={"code": "FORBIDDEN"})
     
-    # TODO: Delete job and cleanup
+    # TODO: Xóa bản ghi và dọn dẹp file
     # await delete_job_record(job_id)
     # await cleanup_job_files(job_id)
     
@@ -282,12 +282,12 @@ async def get_check_history(
     offset: int = Query(0, ge=0)
 ):
     """
-    Get user's check history
+    Lấy lịch sử kiểm tra của người dùng
     
-    - Returns list of jobs
-    - Supports pagination
+    - Trả về danh sách các công việc
+    - Hỗ trợ phân trang (limit, offset)
     """
-    # TODO: Get jobs from database
+    # TODO: Lấy danh sách job từ database
     # jobs = await get_user_jobs(current_user.id, limit=limit, offset=offset)
     
     # Mock response

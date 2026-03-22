@@ -1,6 +1,6 @@
 """
-Authentication routes
-Register, login, refresh token, logout
+Các route liên quan đến xác thực
+Đăng ký, đăng nhập, làm mới token, đăng xuất
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.schemas import UserRegister, UserLogin, Token, TokenRefresh
@@ -15,32 +15,32 @@ from app.core.security import (
 from app.models.user import User
 from jose import JWTError
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(prefix="/auth", tags=["Xác thực"])
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserRegister):
     """
-    Register a new user
+    Đăng ký người dùng mới
     
-    - Creates user account
-    - Returns access and refresh tokens
+    - Tạo tài khoản người dùng
+    - Trả về access token và refresh token
     """
-    # TODO: Check if email already exists
+    # TODO: Kiểm tra email đã tồn tại chưa
     # existing_user = await get_user_by_email(user_data.email)
     # if existing_user:
     #     raise HTTPException(400, detail={"code": "EMAIL_EXISTS"})
     
-    # Hash password
+    # Mã hóa mật khẩu
     hashed_password = get_password_hash(user_data.password)
     
-    # TODO: Create user in database
+    # TODO: Tạo người dùng trong cơ sở dữ liệu
     # user = await create_user(email=user_data.email, password_hash=hashed_password)
     
-    # For now, mock user_id
+    # Tạm thời dùng mock user_id
     user_id = "mock_user_id"
     
-    # Create tokens
+    # Tạo token
     access_token = create_access_token(data={"sub": user_id})
     refresh_token = create_refresh_token(data={"sub": user_id})
     
@@ -53,21 +53,21 @@ async def register(user_data: UserRegister):
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin):
     """
-    Login with email and password
+    Đăng nhập bằng email và mật khẩu
     
-    - Validates credentials
-    - Returns access and refresh tokens
+    - Kiểm tra thông tin đăng nhập
+    - Trả về access token và refresh token
     """
-    # TODO: Get user from database
+    # TODO: Lấy thông tin người dùng từ cơ sở dữ liệu
     # user = await get_user_by_email(credentials.email)
     # if not user or not verify_password(credentials.password, user.password_hash):
     #     raise HTTPException(401, detail={"code": "INVALID_CREDENTIALS"})
     
-    # For now, mock validation
-    # In production, this should verify against database
+    # Tạm thời mock việc kiểm tra
+    # Trong môi trường production cần kiểm tra thực tế với database
     user_id = "mock_user_id"
     
-    # Create tokens
+    # Tạo token
     access_token = create_access_token(data={"sub": user_id})
     refresh_token = create_refresh_token(data={"sub": user_id})
     
@@ -80,10 +80,10 @@ async def login(credentials: UserLogin):
 @router.post("/refresh", response_model=Token)
 async def refresh_token(token_data: TokenRefresh):
     """
-    Refresh access token using refresh token
+    Làm mới access token bằng refresh token
     
-    - Validates refresh token
-    - Returns new access and refresh tokens
+    - Kiểm tra tính hợp lệ của refresh token
+    - Trả về cặp access token và refresh token mới
     """
     try:
         payload = decode_token(token_data.refresh_token)
@@ -101,7 +101,7 @@ async def refresh_token(token_data: TokenRefresh):
             detail={"code": "INVALID_TOKEN"}
         )
     
-    # Create new tokens
+    # Tạo token mới
     access_token = create_access_token(data={"sub": user_id})
     refresh_token = create_refresh_token(data={"sub": user_id})
     
@@ -114,10 +114,10 @@ async def refresh_token(token_data: TokenRefresh):
 @router.get("/me", response_model=User)
 async def get_me(current_user: User = Depends(get_current_user)):
     """
-    Get current user information
+    Lấy thông tin người dùng hiện tại
     
-    - Requires authentication
-    - Returns user profile
+    - Yêu cầu đã xác thực
+    - Trả về thông tin hồ sơ người dùng
     """
     return current_user
 
@@ -125,12 +125,12 @@ async def get_me(current_user: User = Depends(get_current_user)):
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(current_user: User = Depends(get_current_user)):
     """
-    Logout current user
+    Đăng xuất người dùng hiện tại
     
-    - Invalidates tokens (if using token blacklist)
-    - For stateless JWT, client should discard tokens
+    - Vô hiệu hóa token (nếu dùng blacklist)
+    - Với JWT stateless, client chỉ cần xóa token ở phía client
     """
-    # TODO: Add token to blacklist if implementing token revocation
+    # TODO: Thêm token vào blacklist nếu triển khai thu hồi token
     # await add_token_to_blacklist(token)
     
     return None

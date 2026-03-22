@@ -1,6 +1,6 @@
 """
-MinIO Storage Service
-Handles file upload/download to MinIO S3-compatible object storage
+Dịch vụ lưu trữ MinIO
+Xử lý việc upload/download file lên MinIO (hệ thống lưu trữ tương thích S3)
 """
 import os
 import uuid
@@ -24,21 +24,21 @@ logger = logging.getLogger(__name__)
 
 class MinIOStorage:
     """
-    MinIO Storage Service for handling file uploads and downloads.
+    Dịch vụ lưu trữ MinIO để xử lý upload và download file.
     
-    Uses S3-compatible API to store:
-    - Uploaded documents for plagiarism checking
-    - Corpus documents for comparison
+    Sử dụng API tương thích S3 để lưu trữ:
+    - Tài liệu người dùng upload để kiểm tra đạo văn
+    - Tài liệu trong corpus để so sánh
     
-    Best Practices Applied:
-    - Pre-signed URLs for secure downloads
-    - Bucket separation (uploads vs corpus)
-    - Automatic bucket creation if not exists
+    Các thực hành tốt đã áp dụng:
+    - Sử dụng pre-signed URL để download an toàn
+    - Tách biệt bucket (uploads và corpus)
+    - Tự động tạo bucket nếu chưa tồn tại
     """
     
     def __init__(self):
         if not MINIO_AVAILABLE:
-            logger.warning("MinIO not available - file storage disabled")
+            logger.warning("MinIO không khả dụng - chức năng lưu trữ file bị tắt")
             self.client = None
             return
             
@@ -50,13 +50,13 @@ class MinIOStorage:
                 secure=settings.MINIO_SECURE
             )
             self._ensure_buckets_exist()
-            logger.info(f"MinIO connected to {settings.MINIO_ENDPOINT}")
+            logger.info(f"Đã kết nối MinIO tới {settings.MINIO_ENDPOINT}")
         except Exception as e:
-            logger.error(f"Failed to connect to MinIO: {e}")
+            logger.error(f"Kết nối MinIO thất bại: {e}")
             self.client = None
     
     def _ensure_buckets_exist(self):
-        """Create buckets if they don't exist"""
+        """Tạo các bucket nếu chưa tồn tại"""
         if not self.client:
             return
             
@@ -65,9 +65,9 @@ class MinIOStorage:
             try:
                 if not self.client.bucket_exists(bucket):
                     self.client.make_bucket(bucket)
-                    logger.info(f"Created bucket: {bucket}")
+                    logger.info(f"Đã tạo bucket: {bucket}")
             except S3Error as e:
-                logger.error(f"Error creating bucket {bucket}: {e}")
+                logger.error(f"Lỗi khi tạo bucket {bucket}: {e}")
     
     def upload_file(
         self, 
@@ -77,19 +77,19 @@ class MinIOStorage:
         content_type: str = "application/octet-stream"
     ) -> Optional[str]:
         """
-        Upload a file to MinIO
+        Upload file từ đường dẫn local lên MinIO
         
         Args:
-            file_path: Local path to the file
-            bucket: Target bucket (defaults to uploads bucket)
-            object_name: Object name in MinIO (defaults to UUID + filename)
-            content_type: MIME type of the file
+            file_path: Đường dẫn file trên máy local
+            bucket: Bucket đích (mặc định là bucket uploads)
+            object_name: Tên object trong MinIO (mặc định: UUID + tên file gốc)
+            content_type: MIME type của file
             
         Returns:
-            Object name if successful, None otherwise
+            Tên object nếu thành công, None nếu thất bại
         """
         if not self.client:
-            logger.warning("MinIO client not available")
+            logger.warning("Client MinIO không khả dụng")
             return None
             
         bucket = bucket or settings.MINIO_BUCKET_UPLOADS
@@ -108,10 +108,10 @@ class MinIOStorage:
                     file_size,
                     content_type=content_type
                 )
-            logger.info(f"Uploaded {file_path} to {bucket}/{object_name}")
+            logger.info(f"Đã upload {file_path} lên {bucket}/{object_name}")
             return object_name
         except S3Error as e:
-            logger.error(f"Error uploading file: {e}")
+            logger.error(f"Lỗi khi upload file: {e}")
             return None
     
     def upload_bytes(
@@ -122,16 +122,16 @@ class MinIOStorage:
         content_type: str = "application/octet-stream"
     ) -> Optional[str]:
         """
-        Upload bytes data to MinIO
+        Upload dữ liệu dạng bytes lên MinIO
         
         Args:
-            data: Bytes to upload
-            object_name: Object name in MinIO
-            bucket: Target bucket
+            data: Dữ liệu bytes cần upload
+            object_name: Tên object trong MinIO
+            bucket: Bucket đích
             content_type: MIME type
             
         Returns:
-            Object name if successful, None otherwise
+            Tên object nếu thành công, None nếu thất bại
         """
         if not self.client:
             return None
@@ -150,7 +150,7 @@ class MinIOStorage:
             )
             return object_name
         except S3Error as e:
-            logger.error(f"Error uploading bytes: {e}")
+            logger.error(f"Lỗi khi upload bytes: {e}")
             return None
     
     def download_file(
@@ -159,14 +159,14 @@ class MinIOStorage:
         bucket: Optional[str] = None
     ) -> Optional[bytes]:
         """
-        Download a file from MinIO
+        Download nội dung file từ MinIO
         
         Args:
-            object_name: Object name in MinIO
-            bucket: Source bucket
+            object_name: Tên object trong MinIO
+            bucket: Bucket nguồn
             
         Returns:
-            File contents as bytes, None if error
+            Nội dung file dạng bytes, None nếu lỗi
         """
         if not self.client:
             return None
@@ -180,7 +180,7 @@ class MinIOStorage:
             response.release_conn()
             return data
         except S3Error as e:
-            logger.error(f"Error downloading file: {e}")
+            logger.error(f"Lỗi khi download file: {e}")
             return None
     
     def get_presigned_url(
@@ -190,15 +190,15 @@ class MinIOStorage:
         expires: int = 3600
     ) -> Optional[str]:
         """
-        Generate a pre-signed URL for secure download
+        Tạo URL tạm thời (pre-signed) để download an toàn
         
         Args:
-            object_name: Object name in MinIO
-            bucket: Source bucket
-            expires: URL expiration time in seconds (default: 1 hour)
+            object_name: Tên object trong MinIO
+            bucket: Bucket nguồn
+            expires: Thời gian hết hạn của URL (giây) - mặc định 1 giờ
             
         Returns:
-            Pre-signed URL string, None if error
+            Chuỗi URL pre-signed, None nếu lỗi
         """
         if not self.client:
             return None
@@ -213,7 +213,7 @@ class MinIOStorage:
             )
             return url
         except S3Error as e:
-            logger.error(f"Error generating presigned URL: {e}")
+            logger.error(f"Lỗi khi tạo pre-signed URL: {e}")
             return None
     
     def delete_file(
@@ -222,14 +222,14 @@ class MinIOStorage:
         bucket: Optional[str] = None
     ) -> bool:
         """
-        Delete a file from MinIO
+        Xóa file khỏi MinIO
         
         Args:
-            object_name: Object name to delete
-            bucket: Source bucket
+            object_name: Tên object cần xóa
+            bucket: Bucket nguồn
             
         Returns:
-            True if successful, False otherwise
+            True nếu xóa thành công, False nếu thất bại
         """
         if not self.client:
             return False
@@ -238,10 +238,10 @@ class MinIOStorage:
         
         try:
             self.client.remove_object(bucket, object_name)
-            logger.info(f"Deleted {bucket}/{object_name}")
+            logger.info(f"Đã xóa {bucket}/{object_name}")
             return True
         except S3Error as e:
-            logger.error(f"Error deleting file: {e}")
+            logger.error(f"Lỗi khi xóa file: {e}")
             return False
     
     def list_objects(
@@ -250,14 +250,14 @@ class MinIOStorage:
         prefix: str = ""
     ) -> list:
         """
-        List objects in a bucket
+        Liệt kê các object trong bucket
         
         Args:
-            bucket: Bucket to list
-            prefix: Optional prefix filter
+            bucket: Bucket cần liệt kê
+            prefix: Bộ lọc tiền tố (nếu có)
             
         Returns:
-            List of object names
+            Danh sách tên các object
         """
         if not self.client:
             return []
@@ -268,11 +268,11 @@ class MinIOStorage:
             objects = self.client.list_objects(bucket, prefix=prefix, recursive=True)
             return [obj.object_name for obj in objects]
         except S3Error as e:
-            logger.error(f"Error listing objects: {e}")
+            logger.error(f"Lỗi khi liệt kê object: {e}")
             return []
     
     def is_available(self) -> bool:
-        """Check if MinIO is available and connected"""
+        """Kiểm tra xem MinIO có khả dụng và đã kết nối hay không"""
         return self.client is not None
     
     def upload_corpus_document(
@@ -285,33 +285,33 @@ class MinIOStorage:
         year: int = 2024
     ) -> Optional[str]:
         """
-        Upload a corpus document to MinIO for viewing
+        Upload tài liệu corpus lên MinIO để xem sau này
         
         Args:
-            doc_id: Document ID (UUID)
-            title: Document title
-            text: Document content
-            author: Author name
-            university: University name
-            year: Publication year
+            doc_id: ID của tài liệu (UUID)
+            title: Tiêu đề tài liệu
+            text: Nội dung tài liệu
+            author: Tên tác giả
+            university: Tên trường đại học
+            year: Năm xuất bản
             
         Returns:
-            Object path if successful, None otherwise
+            Đường dẫn object nếu thành công, None nếu thất bại
         """
         if not self.client:
             return None
         
-        # Create filename from title (sanitize)
+        # Tạo tên file an toàn từ tiêu đề (giới hạn 50 ký tự)
         safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in title[:50])
         filename = f"{safe_title}_{doc_id[:8]}.txt"
         object_name = f"corpus/{year}/{filename}"
         
-        # Create content with metadata header
+        # Tạo nội dung với phần header metadata
         content = f"""# {title}
-# Author: {author}
-# University: {university}
-# Year: {year}
-# Document ID: {doc_id}
+# Tác giả: {author}
+# Trường: {university}
+# Năm: {year}
+# ID tài liệu: {doc_id}
 # ================================================
 
 {text}
@@ -325,16 +325,16 @@ class MinIOStorage:
                 content_type="text/plain; charset=utf-8"
             )
         except Exception as e:
-            logger.error(f"Error uploading corpus doc {doc_id}: {e}")
+            logger.error(f"Lỗi khi upload tài liệu corpus {doc_id}: {e}")
             return None
 
 
-# Global instance
+# Instance toàn cục
 _minio_storage: Optional[MinIOStorage] = None
 
 
 def get_minio_storage() -> MinIOStorage:
-    """Get or create MinIO storage instance"""
+    """Lấy hoặc tạo instance MinIO storage"""
     global _minio_storage
     if _minio_storage is None:
         _minio_storage = MinIOStorage()
