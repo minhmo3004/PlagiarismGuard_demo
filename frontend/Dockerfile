@@ -1,35 +1,39 @@
-# Frontend Dockerfile for PlagiarismGuard
+# Dockerfile cho Frontend - PlagiarismGuard
+
+# Stage 1: Builder - Build ứng dụng React
 FROM node:18-alpine AS builder
 
-# Set working directory
+# Thiết lập thư mục làm việc
 WORKDIR /app
 
-# Copy package files
+# Copy file package.json và package-lock.json (nếu có)
 COPY package*.json ./
 
-# Install dependencies (use legacy-peer-deps for compatibility)
+# Cài đặt dependencies 
+# Sử dụng --legacy-peer-deps để tương thích với một số package cũ
 RUN npm install --legacy-peer-deps
 
-# Copy source code
+# Copy toàn bộ source code vào container
 COPY . .
 
-# Build the application
+# Build ứng dụng React (tạo thư mục build/)
 RUN npm run build
 
-# Production stage
+# Stage 2: Production - Sử dụng Nginx để phục vụ file tĩnh
 FROM nginx:alpine
 
-# Copy custom nginx config
+# Copy file cấu hình Nginx tùy chỉnh
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy build output
+# Copy thư mục build từ stage builder vào Nginx
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# Expose port
+# Mở port 80
 EXPOSE 80
 
-# Health check
+# Health check - Kiểm tra ứng dụng có đang chạy không
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
 
+# Chạy Nginx ở chế độ foreground
 CMD ["nginx", "-g", "daemon off;"]

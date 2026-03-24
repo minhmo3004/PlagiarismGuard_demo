@@ -1,32 +1,32 @@
-# Dependencies
+# Dependencies - Thư viện và package
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Build output
+# Build output - Kết quả build
 build/
 dist/
 
-# IDE
+# IDE - Các thư mục và file của IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# Test
+# Test - Kết quả test coverage
 coverage/
 
-# Local env
+# Local environment files - File môi trường cục bộ
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Git
+# Git - Thư mục Git
 .git
 .gitignore
 
-# Documentation
+# Documentation - Tài liệu dự án
 README.md

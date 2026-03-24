@@ -1,50 +1,50 @@
 # PlagiarismGuard 2.0
 
-Industrial-grade plagiarism detection system using MinHash + LSH for near-duplicate detection.
+Hệ thống phát hiện đạo văn công nghiệp sử dụng MinHash + LSH để phát hiện bản sao gần giống.
 
-## 📸 Preview
+## 📸 Xem trước
 
 <p align="center">
   <img src="docs/images/upload-page.png" alt="Upload Page" width="100%"/>
-  <br><em>Trang Upload - Tải lên tài liệu cần kiểm tra</em>
+  <br><em>Trang Tải lên - Tải lên tài liệu cần kiểm tra</em>
 </p>
 
 <p align="center">
   <img src="docs/images/result-page.png" alt="Result Page" width="100%"/>
-  <br><em>Trang Kết Quả - Hiển thị độ tương đồng và nguồn trùng khớp</em>
+  <br><em>Trang Kết quả - Hiển thị độ tương đồng và nguồn trùng khớp</em>
 </p>
 
 <p align="center">
   <img src="docs/images/history-page.png" alt="History Page" width="100%"/>
-  <br><em>Trang Lịch Sử - Quản lý các lần kiểm tra</em>
+  <br><em>Trang Lịch sử - Quản lý các lần kiểm tra</em>
 </p>
 
-## 🎯 Features
+## 🎯 Tính năng
 
-- **MinHash + LSH Algorithm**: Fast similarity detection without ML training
-- **Vietnamese NLP**: Optimized for Vietnamese text with `underthesea`
-- **Scalable**: Handles 1M+ documents with Redis LSH indexing
-- **High Accuracy**: Precision ≥ 90%, Recall ≥ 85%
-- **Fast**: Query latency < 500ms
+- **Thuật toán MinHash + LSH**: Phát hiện độ tương đồng nhanh chóng mà không cần đào tạo máy học
+- **Xử lý ngôn ngữ tự nhiên tiếng Việt**: Tối ưu hóa cho văn bản tiếng Việt với `underthesea`
+- **Khả năng mở rộng**: Xử lý hơn 1 triệu tài liệu với chỉ mục LSH Redis
+- **Độ chính xác cao**: Độ chính xác ≥ 90%, Độ thu hồi ≥ 85%
+- **Tốc độ nhanh**: Độ trễ truy vấn < 500ms
 
-## 🏗️ Architecture
+## 🏗️ Kiến trúc
 
 ```
 Backend:  FastAPI + Celery + Redis + PostgreSQL + S3
 Frontend: React 18 + TypeScript + Ant Design
-Algorithm: datasketch (MinHash/LSH) + underthesea (Vietnamese NLP)
+Thuật toán: datasketch (MinHash/LSH) + underthesea (Xử lý ngôn ngữ tự nhiên tiếng Việt)
 ```
 
-## 📚 Documentation
+## 📚 Tài liệu
 
-See `/docs/plan/` for detailed documentation:
-- **[PROMPT.md](./docs/plan/PROMPT.md)** - Prompt to start implementation
-- **[IMPLEMENTATION_STEPS.md](./docs/plan/IMPLEMENTATION_STEPS.md)** - Step-by-step guide
-- **[README.md](./docs/plan/README.md)** - Documentation index
+Xem `/docs/plan/` để biết tài liệu chi tiết:
+- **[PROMPT.md](./docs/plan/PROMPT.md)** - Prompt để bắt đầu triển khai
+- **[IMPLEMENTATION_STEPS.md](./docs/plan/IMPLEMENTATION_STEPS.md)** - Hướng dẫn từng bước
+- **[README.md](./docs/plan/README.md)** - Mục lục tài liệu
 
-## 🚀 Quick Start
+## 🚀 Bắt đầu nhanh
 
-### Prerequisites
+### Điều kiện tiên quyết
 
 - Python 3.9+
 - Node.js 18+
@@ -52,68 +52,67 @@ See `/docs/plan/` for detailed documentation:
 - PostgreSQL 15+
 - Redis 7+
 
-### One-Command Setup
+### Thiết lập một lệnh
 
 ```bash
-# Clone repository
+# Sao chép kho lưu trữ
 git clone <repo-url>
 cd Phat-Hien-Dao-Van-MinHash-LSH
 
-# Run setup script (installs all dependencies)
+# Chạy script thiết lập (cài đặt tất cả phụ thuộc)
 chmod +x scripts/*.sh
 ./scripts/setup.sh
 ```
 
-### Start Development
+### Bắt đầu phát triển
 
 ```bash
-# Start both backend and frontend
+# Khởi động cả backend và frontend
 ./scripts/run-dev.sh
 
-# Access:
+# Truy cập:
 # - Frontend:  http://localhost:3000
 # - Backend:   http://localhost:8000
-# - API Docs:  http://localhost:8000/docs
+# - Tài liệu API:  http://localhost:8000/docs
 ```
 
-### Manual Setup (Alternative)
+### Thiết lập thủ công (Thay thế)
 
 <details>
-<summary>Click to expand manual setup instructions</summary>
+<summary>Nhấp để mở rộng hướng dẫn thiết lập thủ công</summary>
 
-#### 1. Start Services
+#### 1. Khởi động dịch vụ
 
 ```bash
-# Start Redis, PostgreSQL, MinIO
+# Khởi động Redis, PostgreSQL, MinIO
 docker-compose up -d
 
-# Wait for services to be healthy
+# Chờ dịch vụ khỏe mạnh
 docker-compose ps
 ```
 
-#### 2. Setup Backend
+#### 2. Thiết lập Backend
 
 ```bash
 cd backend
 
-# Create virtual environment
+# Tạo môi trường ảo
 python -m venv venv
-venv\Scripts\activate  # On IOS: source venv/bin/activate
+venv\Scripts\activate  # Trên IOS: source venv/bin/activate
 
-# Install dependencies
+# Cài đặt phụ thuộc
 pip install -r requirements.txt
 
-# Copy environment file
+# Sao chép file môi trường
 cp ../.env.example .env
 
-
-# Run backend
+# Chạy backend
 uvicorn app.main:app --reload --port 8000
 ```
 
-Backend will be available at http://localhost:8000
+Backend sẽ có sẵn tại http://localhost:8000
 
-#### 3. Setup Frontend
+#### 3. Thiết lập Frontend
 
 ```bash
 cd frontend
@@ -121,145 +120,141 @@ npm install
 npm start
 ```
 
-Frontend will be available at http://localhost:3000
+Frontend sẽ có sẵn tại http://localhost:3000
 
 </details>
 
-## 📊 Current Progress
+## 📊 Tiến độ hiện tại
 
-- [x] **Phase 1: Project Setup** (14 files) - COMPLETED
-  - [x] Directory structure
-  - [x] Docker Compose services
-  - [x] Database schema
-  - [x] Configuration files
-  - [x] Pydantic models
+- [x] **Giai đoạn 1: Thiết lập dự án** (14 file) - HOÀN THÀNH
+  - [x] Cấu trúc thư mục
+  - [x] Dịch vụ Docker Compose
+  - [x] Lược đồ cơ sở dữ liệu
+  - [x] File cấu hình
+  - [x] Mô hình Pydantic
   
-- [x] **Phase 2: Core Algorithm** (14 files) - COMPLETED
-  - [x] MinHash generator
-  - [x] LSH indexer
-  - [x] Text preprocessing
-  - [x] Similarity calculator
+- [x] **Giai đoạn 2: Thuật toán cốt lõi** (14 file) - HOÀN THÀNH
+  - [x] Bộ tạo MinHash
+  - [x] Bộ chỉ mục LSH
+  - [x] Tiền xử lý văn bản
+  - [x] Bộ tính độ tương đồng
   
-- [x] **Phase 3: API Layer** (10 files) - COMPLETED
-  - [x] FastAPI endpoints
-  - [x] Celery tasks
-  - [x] WebSocket support
-  - [x] Authentication
+- [x] **Giai đoạn 3: Lớp API** (10 file) - HOÀN THÀNH
+  - [x] Điểm cuối FastAPI
+  - [x] Tác vụ Celery
+  - [x] Hỗ trợ WebSocket
+  - [x] Xác thực
   
-- [x] **Phase 4: Frontend** (19 files) - COMPLETED
-  - [x] React components
-  - [x] Custom hooks
-  - [x] Pages and routing
-  - [x] API integration
+- [x] **Giai đoạn 4: Frontend** (19 file) - HOÀN THÀNH
+  - [x] Thành phần React
+  - [x] Hook tùy chỉnh
+  - [x] Trang và định tuyến
+  - [x] Tích hợp API
   
-- [x] **Phase 5: Testing** (4 files) - COMPLETED
-  - [x] Unit tests
-  - [x] Component tests
+- [x] **Giai đoạn 5: Kiểm tra** (4 file) - HOÀN THÀNH
+  - [x] Kiểm tra đơn vị
+  - [x] Kiểm tra thành phần
   
-- [x] **Phase 6: Dev Scripts** (3 files) - COMPLETED
-  - [x] Setup script
-  - [x] Run script
-  - [x] Test script
+- [x] **Giai đoạn 6: Script phát triển** (3 file) - HOÀN THÀNH
+  - [x] Script thiết lập
+  - [x] Script chạy
+  - [x] Script kiểm tra
 
-**Total: 64 files created**
+**Tổng cộng: 64 file đã tạo**
 
-## 📚 Corpus Management
+## 📚 Quản lý Corpus
 
-### Wikipedia Crawler
+### Bộ thu thập Wikipedia
 
-Automatically crawl Vietnamese Wikipedia to expand corpus:
+Tự động thu thập Wikipedia tiếng Việt để mở rộng corpus:
 
 ```bash
-# Crawl 100 random articles
+# Thu thập 100 bài viết ngẫu nhiên
 docker exec plagiarism-backend python scripts/crawl_wiki_import.py --random 100
 
-# Crawl from tech categories (AI, CS, IT, etc.)
+# Thu thập từ danh mục công nghệ (AI, CS, IT, v.v.)
 docker exec plagiarism-backend python scripts/crawl_wiki_import.py --tech-categories 50
 
-# Crawl specific category
+# Thu thập danh mục cụ thể
 docker exec plagiarism-backend python scripts/crawl_wiki_import.py \
     --category "Khoa_học_máy_tính" --limit 50
 
-# Crawl and sync to Redis immediately
+# Thu thập và đồng bộ với Redis ngay lập tức
 docker exec plagiarism-backend python scripts/crawl_wiki_import.py \
     --random 200 --sync-redis
 ```
 
-**Features:**
-- ✅ Random article crawling
-- ✅ Category-based targeting (8 tech categories)
-- ✅ Quality filtering (50+ words minimum)
-- ✅ Vietnamese text cleaning
-- ✅ Auto-import to database
-- ✅ Redis LSH sync
+**Tính năng:**
+- ✅ Thu thập bài viết ngẫu nhiên
+- ✅ Nhắm mục tiêu dựa trên danh mục (8 danh mục công nghệ)
+- ✅ Lọc chất lượng (tối thiểu 50 từ)
+- ✅ Làm sạch văn bản tiếng Việt
+- ✅ Tự động nhập vào cơ sở dữ liệu
+- ✅ Đồng bộ LSH Redis
 
-### Verify Corpus
+### Xác minh Corpus
 
 ```bash
-# Check corpus statistics
+# Kiểm tra thống kê corpus
 docker exec plagiarism-backend python scripts/verify_corpus.py
 
-# Check Wikipedia articles count
+# Kiểm tra số lượng bài viết Wikipedia
 docker exec plagiarism-backend python scripts/check_wiki_corpus.py
 ```
 
-**Documentation:**
-- [`backend/scripts/WIKIPEDIA_CRAWLER.md`](backend/scripts/WIKIPEDIA_CRAWLER.md) - Full crawler guide
-- [`DATA_GUIDE.md`](DATA_GUIDE.md) - General corpus management
+**Tài liệu:**
+- [`backend/scripts/WIKIPEDIA_CRAWLER.md`](backend/scripts/WIKIPEDIA_CRAWLER.md) - Hướng dẫn bộ thu thập đầy đủ
+- [`DATA_GUIDE.md`](DATA_GUIDE.md) - Quản lý corpus chung
 
-## 🧪 Testing
+## 🧪 Kiểm tra
 
 ```bash
-# Run all tests (backend + frontend)
+# Chạy tất cả kiểm tra (backend + frontend)
 ./scripts/run-tests.sh
 
-# Run only backend tests
+# Chạy chỉ kiểm tra backend
 cd backend && pytest tests/ -v --cov=app
 
-# Run only frontend tests
+# Chạy chỉ kiểm tra frontend
 cd frontend && npm test
 
-# View coverage reports
+# Xem báo cáo bao phủ
 open test-results/backend-coverage/index.html
 open test-results/frontend-coverage/lcov-report/index.html
 ```
 
-## 🛠️ Development Scripts
+## 🛠️ Script phát triển
 
-| Script | Description |
+| Script | Mô tả |
 |--------|-------------|
-| `scripts/setup.sh` | Install all dependencies (one-time setup) |
-| `scripts/run-dev.sh` | Start backend + frontend concurrently |
-| `scripts/run-tests.sh` | Run all tests with coverage reports |
+| `scripts/setup.sh` | Cài đặt tất cả phụ thuộc (thiết lập một lần) |
+| `scripts/run-dev.sh` | Khởi động backend + frontend đồng thời |
+| `scripts/run-tests.sh` | Chạy tất cả kiểm tra với báo cáo bao phủ |
 
-## 📁 Project Structure
+## 📁 Cấu trúc dự án
 
 ```
-├── backend/              # FastAPI backend
+├── backend/              # Backend FastAPI
 │   ├── app/
-│   │   ├── api/         # API endpoints
-│   │   ├── core/        # Core config
-│   │   ├── db/          # Database
-│   │   ├── models/      # SQLAlchemy models
-│   │   ├── schemas/     # Pydantic schemas
-│   │   └── services/    # Business logic
-│   └── tests/           # Backend tests
-├── frontend/            # React frontend
+│   │   ├── api/         # Điểm cuối API
+│   │   ├── core/        # Cấu hình cốt lõi
+│   │   ├── db/          # Cơ sở dữ liệu
+│   │   ├── models/      # Mô hình SQLAlchemy
+│   │   ├── schemas/     # Lược đồ Pydantic
+│   │   └── services/    # Logic nghiệp vụ
+│   └── tests/           # Kiểm tra backend
+├── frontend/            # Frontend React
 │   ├── src/
-│   │   ├── components/  # React components
-│   │   ├── hooks/       # Custom hooks
-│   │   ├── pages/       # Page components
-│   │   └── services/    # API services
-│   └── __tests__/       # Frontend tests
-├── scripts/             # Development scripts
-├── docs/                # Documentation
-└── docker-compose.yml   # Docker services
+│   │   ├── components/  # Thành phần React
+│   │   ├── hooks/       # Hook tùy chỉnh
+│   │   ├── pages/       # Thành phần trang
+│   │   └── services/    # Dịch vụ API
+│   └── __tests__/       # Kiểm tra frontend
+├── scripts/             # Script phát triển
+├── docs/                # Tài liệu
+└── docker-compose.yml   # Dịch vụ Docker
 ```
 
-## 📝 License
 
-MIT License
 
-## 👥 Contributors
 
-- AI Model Implementation Team
