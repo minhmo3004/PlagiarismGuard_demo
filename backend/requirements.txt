@@ -1,58 +1,61 @@
-# Core dependencies
+# =============================================
+# PlagiarismGuard - Backend Dependencies
+# =============================================
+
+# Core Framework
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 python-multipart==0.0.6
 
 # Database
-psycopg2-binary==2.9.9
-sqlalchemy==2.0.25
+psycopg2-binary==2.9.9          # Driver PostgreSQL
+sqlalchemy==2.0.25              # ORM
 
 # Redis & Caching
 redis==5.0.1
 hiredis==2.3.2
 
-# Celery for background tasks
+# Celery - Xử lý nền (background tasks)
 celery==5.3.6
-flower==2.0.1
+flower==2.0.1                   # Web UI theo dõi Celery
 
-# MinHash & LSH
+# MinHash & LSH (phát hiện đạo văn)
 datasketch==1.6.4
 mmh3==4.1.0
 
 # Vietnamese NLP
 underthesea==6.7.0
 
-# PDF Processing
-PyMuPDF==1.23.21
-python-docx==1.1.0
-pdf2image==1.17.0
-pytesseract==0.3.10
+# Xử lý file & Tài liệu
+PyMuPDF==1.23.21                # Đọc PDF nhanh
+python-docx==1.1.0              # Đọc file Word
+pdf2image==1.17.0               # Chuyển PDF sang ảnh (OCR)
+pytesseract==0.3.10             # OCR với Tesseract
 
-# Authentication & Security
+# Xác thực & Bảo mật
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-dotenv==1.0.1
 
-# HTTP & API
+# HTTP Client & Pydantic
 httpx==0.26.0
 pydantic[email]==2.5.3
 pydantic-settings==2.1.0
 
-# File Storage
+# Lưu trữ file (MinIO / S3)
 boto3==1.34.34
 minio==7.2.3
 
-# Utilities
-python-magic==0.4.27
-pillow==10.2.0
+# Tiện ích
+python-magic==0.4.27            # Xác định loại file
+pillow==10.2.0                  # Xử lý ảnh
 
 # Testing
 pytest==7.4.4
 pytest-cov==4.1.0
 pytest-asyncio==0.23.3
-httpx==0.26.0
 
 # Code Quality
-ruff==0.1.14
-mypy==1.8.0
-black==24.1.1
+ruff==0.1.14                    # Linter & Formatter nhanh
+mypy==1.8.0                     # Type checking
+black==24.1.1                   # Code formatter

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-Import Custom Corpus from Text Files
+Import Corpus Tùy Chỉnh từ các file Text
 
-Usage:
-    # Trong container:
+Script này dùng để nhập các file văn bản (.txt) vào corpus của hệ thống.
+
+Cách sử dụng:
+    # Bên trong container:
     python scripts/import_custom_corpus.py /path/to/text/files
     
-    # Từ host (copy files vào container trước):
+    # Từ máy host (copy file vào container trước):
     docker cp /my/corpus plagiarism-backend:/data/corpus
     docker exec plagiarism-backend python scripts/import_custom_corpus.py /data/corpus
     docker restart plagiarism-backend
@@ -24,18 +26,19 @@ from app.db.models import Document
 from app.services.preprocessing.vietnamese_nlp import preprocess_vietnamese
 from app.services.preprocessing.text_normalizer import normalize_text
 
+
 def import_corpus(folder_path: str, author='Unknown', university='Unknown', year=2024):
     """
-    Import text files from folder into corpus database
+    Nhập các file văn bản từ thư mục vào cơ sở dữ liệu corpus
     
     Args:
-        folder_path: Path to folder containing .txt files
-        author: Default author name
-        university: Default university
-        year: Default publication year
+        folder_path: Đường dẫn đến thư mục chứa các file .txt
+        author: Tên tác giả mặc định
+        university: Tên trường đại học / tổ chức mặc định
+        year: Năm xuất bản mặc định
     """
     if not os.path.exists(folder_path):
-        print(f"❌ Folder not found: {folder_path}")
+        print(f"❌ Không tìm thấy thư mục: {folder_path}")
         return
     
     db = SessionLocal()
@@ -43,46 +46,46 @@ def import_corpus(folder_path: str, author='Unknown', university='Unknown', year
     failed = 0
     
     print(f"\n{'='*70}")
-    print(f"📥 IMPORTING CUSTOM CORPUS")
+    print(f"📥 ĐANG NHẬP CORPUS TÙY CHỈNH")
     print(f"{'='*70}")
-    print(f"Source: {folder_path}\n")
+    print(f"Nguồn: {folder_path}\n")
     
     txt_files = list(Path(folder_path).glob('*.txt'))
     total = len(txt_files)
     
     if total == 0:
-        print("❌ No .txt files found")
+        print("❌ Không tìm thấy file .txt nào trong thư mục")
         db.close()
         return
     
-    print(f"Found {total} text files\n")
+    print(f"Tìm thấy {total} file văn bản\n")
     
     for txt_file in txt_files:
         try:
-            # Read file
+            # Đọc nội dung file
             with open(txt_file, 'r', encoding='utf-8') as f:
                 text = f.read().strip()
             
             if not text:
-                print(f"⚠️  [{count+1}/{total}] {txt_file.name} - Empty file, skipped")
+                print(f"⚠️  [{count+1}/{total}] {txt_file.name} - File rỗng, bỏ qua")
                 failed += 1
                 continue
             
-            # Normalize and tokenize
+            # Chuẩn hóa và tokenize văn bản
             normalized = normalize_text(text)
             tokens = preprocess_vietnamese(normalized)
             word_count = len(tokens)
             
-            # Validate word count (500-1000 recommended)
+            # Kiểm tra độ dài (khuyến nghị tối thiểu 100 từ)
             if word_count < 100:
-                print(f"⚠️  [{count+1}/{total}] {txt_file.name} - Too short ({word_count} words), skipped")
+                print(f"⚠️  [{count+1}/{total}] {txt_file.name} - Quá ngắn ({word_count} từ), bỏ qua")
                 failed += 1
                 continue
             
-            # Create document
+            # Tạo bản ghi Document
             doc = Document(
                 id=uuid.uuid4(),
-                title=txt_file.stem[:500],  # Use filename as title (max 500 chars)
+                title=txt_file.stem[:500],   # Dùng tên file làm tiêu đề (tối đa 500 ký tự)
                 author=author,
                 university=university,
                 year=year,
@@ -96,36 +99,37 @@ def import_corpus(folder_path: str, author='Unknown', university='Unknown', year
             db.add(doc)
             count += 1
             
-            # Show progress
-            print(f"✅ [{count}/{total}] {txt_file.name} - {word_count} words")
+            # Hiển thị tiến độ
+            print(f"✅ [{count}/{total}] {txt_file.name} - {word_count} từ")
             
-            # Commit batch
+            # Commit theo batch
             if count % 100 == 0:
                 db.commit()
-                print(f"   💾 Committed {count} documents...")
+                print(f"   💾 Đã lưu {count} tài liệu...")
         
         except Exception as e:
-            print(f"❌ [{count+1}/{total}] {txt_file.name} - Error: {e}")
+            print(f"❌ [{count+1}/{total}] {txt_file.name} - Lỗi: {e}")
             failed += 1
     
-    # Final commit
+    # Commit lần cuối
     db.commit()
     db.close()
     
-    # Summary
+    # Tóm tắt kết quả
     print(f"\n{'='*70}")
-    print(f"✅ Import completed:")
-    print(f"   • Successfully imported: {count} documents")
-    print(f"   • Failed/Skipped: {failed} files")
-    print(f"   • Total processed: {total} files")
+    print(f"✅ Hoàn tất nhập corpus:")
+    print(f"   • Nhập thành công: {count} tài liệu")
+    print(f"   • Bỏ qua / Lỗi: {failed} file")
+    print(f"   • Tổng số file đã xử lý: {total} file")
     print(f"{'='*70}")
-    print(f"\n⚠️  IMPORTANT: Restart backend to sync to Redis LSH index:")
+    print(f"\n⚠️  QUAN TRỌNG: Hãy restart backend để đồng bộ vào Redis LSH index:")
     print(f"   docker restart plagiarism-backend\n")
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: python import_custom_corpus.py <folder_path> [author] [university] [year]")
-        print("\nExample:")
+        print("Cách dùng: python import_custom_corpus.py <đường_dẫn_thư_mục> [tác_giả] [trường] [năm]")
+        print("\nVí dụ:")
         print("  python import_custom_corpus.py /data/corpus")
         print("  python import_custom_corpus.py /data/corpus 'Nguyễn Văn A' 'ĐHBK HN' 2024")
         sys.exit(1)

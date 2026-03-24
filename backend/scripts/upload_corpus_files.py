@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-Upload Corpus Files to MinIO + PostgreSQL + Redis
+Upload Corpus Files lên MinIO + PostgreSQL + Redis
 
-Upload .txt, .docx, .pdf files from a local directory directly into the system.
+Script này cho phép upload các file .txt, .docx, .pdf từ thư mục cục bộ trực tiếp vào hệ thống.
 
-Usage:
-    # Upload all files from a folder
+Cách sử dụng:
+    # Upload tất cả file từ một thư mục
     python scripts/upload_corpus_files.py --dir /path/to/corpus/files
 
-    # Upload with custom metadata
-    python scripts/upload_corpus_files.py --dir /path/to/files --author "Nguyen Van A" --university "DH CNTT"
+    # Upload kèm metadata tùy chỉnh
+    python scripts/upload_corpus_files.py --dir /path/to/files --author "Nguyễn Văn A" --university "ĐH CNTT"
 
-    # Upload and sync to Redis immediately
+    # Upload và đồng bộ ngay vào Redis
     python scripts/upload_corpus_files.py --dir /path/to/files --sync-redis
 
-    # Limit to 100 files
+    # Giới hạn số lượng file
     python scripts/upload_corpus_files.py --dir /path/to/files --limit 100
 
-Examples:
-    # Quick: upload 100 txt files
+Ví dụ:
+    # Test nhanh: upload 100 file txt
     python scripts/upload_corpus_files.py --dir /app/corpus_data --limit 100 --sync-redis
 """
 import os
@@ -45,7 +45,7 @@ SUPPORTED_EXTENSIONS = {'.txt', '.docx', '.pdf', '.doc'}
 
 
 def extract_text_from_file(filepath: str) -> str:
-    """Extract text content from a file"""
+    """Trích xuất nội dung văn bản từ file"""
     ext = os.path.splitext(filepath)[1].lower()
     
     if ext == '.txt':
@@ -58,7 +58,7 @@ def extract_text_from_file(filepath: str) -> str:
             doc = docx.Document(filepath)
             return '\n'.join(p.text for p in doc.paragraphs if p.text.strip())
         except ImportError:
-            logger.warning("python-docx not installed. Run: pip install python-docx")
+            logger.warning("python-docx chưa được cài đặt. Chạy lệnh: pip install python-docx")
             return ""
     
     elif ext == '.pdf':
@@ -68,20 +68,20 @@ def extract_text_from_file(filepath: str) -> str:
                 reader = PyPDF2.PdfReader(f)
                 return '\n'.join(page.extract_text() or '' for page in reader.pages)
         except ImportError:
-            logger.warning("PyPDF2 not installed. Run: pip install PyPDF2")
+            logger.warning("PyPDF2 chưa được cài đặt. Chạy lệnh: pip install PyPDF2")
             return ""
     
     return ""
 
 
 def upload_corpus(args):
-    """Upload corpus files from directory"""
+    """Upload các file corpus từ thư mục vào hệ thống"""
     directory = args.dir
     if not os.path.isdir(directory):
-        logger.error(f"❌ Directory not found: {directory}")
+        logger.error(f"❌ Không tìm thấy thư mục: {directory}")
         sys.exit(1)
     
-    # Collect files
+    # Thu thập các file hợp lệ
     files = []
     for f in sorted(os.listdir(directory)):
         ext = os.path.splitext(f)[1].lower()
@@ -92,12 +92,12 @@ def upload_corpus(args):
         files = files[:args.limit]
     
     if not files:
-        logger.error(f"❌ No supported files found in {directory}")
+        logger.error(f"❌ Không tìm thấy file hỗ trợ nào trong thư mục {directory}")
         sys.exit(1)
     
     logger.info(f"\n{'='*70}")
-    logger.info(f"📤 UPLOADING {len(files)} CORPUS FILES")
-    logger.info(f"   Source: {directory}")
+    logger.info(f"📤 ĐANG UPLOAD {len(files)} FILE CORPUS")
+    logger.info(f"   Nguồn: {directory}")
     logger.info(f"{'='*70}\n")
     
     db = SessionLocal()
@@ -105,7 +105,7 @@ def upload_corpus(args):
     minio_available = minio.is_available()
     
     if not minio_available:
-        logger.warning("⚠️  MinIO not available. Files will be saved to PostgreSQL only.")
+        logger.warning("⚠️  MinIO chưa khả dụng. File sẽ chỉ được lưu vào PostgreSQL.")
     
     uploaded = 0
     skipped = 0
@@ -114,38 +114,38 @@ def upload_corpus(args):
     for i, filepath in enumerate(files, 1):
         filename = os.path.basename(filepath)
         try:
-            # Extract text
+            # Trích xuất văn bản
             text = extract_text_from_file(filepath)
             if not text or len(text.strip()) < 50:
-                logger.warning(f"⚠️  [{i}/{len(files)}] {filename} - Too short or empty, skipped")
+                logger.warning(f"⚠️  [{i}/{len(files)}] {filename} - Quá ngắn hoặc rỗng, bỏ qua")
                 skipped += 1
                 continue
             
-            # Check duplicate
+            # Kiểm tra trùng lặp
             text_hash = hashlib.sha256(text.encode()).hexdigest()
             if text_hash in seen_hashes:
-                logger.warning(f"⚠️  [{i}/{len(files)}] {filename} - Duplicate in batch, skipped")
+                logger.warning(f"⚠️  [{i}/{len(files)}] {filename} - Trùng lặp trong batch, bỏ qua")
                 skipped += 1
                 continue
             
             existing = db.query(Document).filter(Document.file_hash_sha256 == text_hash).first()
             if existing:
-                logger.warning(f"⚠️  [{i}/{len(files)}] {filename} - Already in DB, skipped")
+                logger.warning(f"⚠️  [{i}/{len(files)}] {filename} - Đã tồn tại trong DB, bỏ qua")
                 seen_hashes.add(text_hash)
                 skipped += 1
                 continue
             
-            # Process text
+            # Xử lý văn bản
             normalized = normalize_text(text)
             tokens = preprocess_vietnamese(normalized)
             word_count = len(tokens)
             
-            # Derive title from filename
+            # Tạo tiêu đề từ tên file
             title = os.path.splitext(filename)[0].replace('_', ' ').replace('-', ' ')
             doc_id = uuid.uuid4()
             year = args.year or datetime.now().year
             
-            # Save to PostgreSQL
+            # Lưu vào PostgreSQL
             doc = Document(
                 id=doc_id,
                 title=title[:500],
@@ -169,11 +169,11 @@ def upload_corpus(args):
                 db.commit()
             except Exception as e:
                 db.rollback()
-                logger.warning(f"⚠️  [{i}/{len(files)}] {filename} - DB error: {str(e)[:60]}")
+                logger.warning(f"⚠️  [{i}/{len(files)}] {filename} - Lỗi database: {str(e)[:60]}")
                 skipped += 1
                 continue
             
-            # Upload to MinIO
+            # Upload lên MinIO
             if minio_available:
                 minio.upload_corpus_document(
                     doc_id=str(doc_id),
@@ -186,10 +186,10 @@ def upload_corpus(args):
             
             seen_hashes.add(text_hash)
             uploaded += 1
-            logger.info(f"✅ [{uploaded}/{len(files)}] {filename} - {word_count} words")
+            logger.info(f"✅ [{uploaded}/{len(files)}] {filename} - {word_count} từ")
         
         except Exception as e:
-            logger.error(f"❌ [{i}/{len(files)}] {filename} - Error: {e}")
+            logger.error(f"❌ [{i}/{len(files)}] {filename} - Lỗi: {e}")
             try:
                 db.rollback()
             except Exception:
@@ -199,31 +199,31 @@ def upload_corpus(args):
     db.close()
     
     logger.info(f"\n{'='*70}")
-    logger.info(f"✅ Upload Summary:")
-    logger.info(f"   • Uploaded: {uploaded}")
-    logger.info(f"   • Skipped: {skipped}")
-    logger.info(f"   • MinIO: {'✅' if minio_available else '❌ Not available'}")
+    logger.info(f"✅ Tóm tắt upload:")
+    logger.info(f"   • Đã upload: {uploaded} file")
+    logger.info(f"   • Bỏ qua: {skipped} file")
+    logger.info(f"   • MinIO: {'✅' if minio_available else '❌ Không khả dụng'}")
     logger.info(f"{'='*70}\n")
     
-    # Sync to Redis
+    # Đồng bộ Redis
     if args.sync_redis and uploaded > 0:
-        logger.info("🔄 Restarting backend to sync Redis LSH index...")
+        logger.info("🔄 Đang restart backend để đồng bộ Redis LSH index...")
         import subprocess
         try:
             subprocess.run(['docker', 'restart', 'plagiarism-backend'], check=True, timeout=30)
-            logger.info("✅ Backend restarted. Redis will sync on startup.")
+            logger.info("✅ Backend đã restart. Redis sẽ đồng bộ khi khởi động lại.")
         except Exception:
-            logger.info("⚠️  Could not restart. Run manually: docker restart plagiarism-backend")
+            logger.info("⚠️  Không thể restart tự động. Hãy chạy thủ công: docker restart plagiarism-backend")
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Upload corpus files to MinIO + PostgreSQL')
-    parser.add_argument('--dir', required=True, help='Directory containing corpus files (.txt, .docx, .pdf)')
-    parser.add_argument('--limit', type=int, help='Max number of files to upload')
-    parser.add_argument('--author', type=str, help='Author name for all files')
-    parser.add_argument('--university', type=str, help='University name for all files')
-    parser.add_argument('--year', type=int, help='Publication year')
-    parser.add_argument('--sync-redis', action='store_true', help='Sync to Redis after upload')
+    parser = argparse.ArgumentParser(description='Upload file corpus lên MinIO + PostgreSQL')
+    parser.add_argument('--dir', required=True, help='Thư mục chứa các file corpus (.txt, .docx, .pdf)')
+    parser.add_argument('--limit', type=int, help='Giới hạn số lượng file upload')
+    parser.add_argument('--author', type=str, help='Tên tác giả áp dụng cho tất cả file')
+    parser.add_argument('--university', type=str, help='Tên trường đại học áp dụng cho tất cả file')
+    parser.add_argument('--year', type=int, help='Năm xuất bản')
+    parser.add_argument('--sync-redis', action='store_true', help='Đồng bộ vào Redis sau khi upload')
     args = parser.parse_args()
     upload_corpus(args)
 

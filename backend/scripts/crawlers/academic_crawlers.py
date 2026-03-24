@@ -1,15 +1,15 @@
 """
-Google Scholar Crawler for Vietnamese Academic Papers
-Crawls publicly available academic papers from Google Scholar
+Crawler cho các bài báo học thuật từ Google Scholar (tập trung vào tài liệu tiếng Việt)
+Thu thập các bài báo học thuật công khai từ Google Scholar
 
-Features:
-- Search Vietnamese papers by keyword
-- Filter by university affiliation
-- Extract title, author, abstract
-- Respects robots.txt and rate limits
+Tính năng:
+- Tìm kiếm bài báo tiếng Việt theo từ khóa
+- Lọc theo trường đại học
+- Trích xuất tiêu đề, tác giả, tóm tắt
+- Tôn trọng robots.txt và giới hạn tốc độ
 
-Usage:
-    from crawlers.google_scholar_crawler import GoogleScholarCrawler
+Cách sử dụng:
+    from crawlers.academic_crawlers import GoogleScholarCrawler
     
     crawler = GoogleScholarCrawler()
     docs = crawler.search(query="machine learning", university="Bách Khoa", limit=50)
@@ -21,14 +21,14 @@ from .base_crawler import BaseCrawler
 
 
 class GoogleScholarCrawler(BaseCrawler):
-    """Crawler for Google Scholar Vietnamese papers"""
+    """Crawler cho bài báo trên Google Scholar (tập trung vào tài liệu Việt Nam)"""
     
     def __init__(self, delay_seconds: float = 3.0, **kwargs):
-        # Longer delay for Google Scholar to avoid blocking
+        # Tăng thời gian delay để tránh bị Google chặn
         super().__init__(delay_seconds=delay_seconds, **kwargs)
         self.base_url = "https://scholar.google.com/scholar"
         
-        # Vietnamese universities keywords
+        # Từ khóa các trường đại học Việt Nam
         self.universities = {
             'vnu': ['Đại học Quốc gia Hà Nội', 'Vietnam National University', 'VNU'],
             'hust': ['Bách Khoa Hà Nội', 'Hanoi University of Science and Technology', 'HUST'],
@@ -38,7 +38,7 @@ class GoogleScholarCrawler(BaseCrawler):
             'fpt': ['FPT University', 'Đại học FPT'],
         }
         
-        # Research topics in Vietnamese
+        # Các chủ đề nghiên cứu phổ biến bằng tiếng Việt
         self.topics = [
             'trí tuệ nhân tạo',
             'học máy',
@@ -53,53 +53,57 @@ class GoogleScholarCrawler(BaseCrawler):
     def search(self, query: str, university: Optional[str] = None, 
                limit: int = 50, language: str = 'vi') -> List[Dict]:
         """
-        Search Google Scholar for academic papers
+        Tìm kiếm bài báo trên Google Scholar
         
         Args:
-            query: Search query (e.g., "machine learning")
-            university: Filter by university (e.g., "hust", "vnu")
-            limit: Maximum number of results
-            language: Language filter ('vi' for Vietnamese)
+            query: Từ khóa tìm kiếm (ví dụ: "machine learning")
+            university: Lọc theo trường đại học (ví dụ: "hust", "vnu")
+            limit: Số lượng kết quả tối đa
+            language: Ngôn ngữ lọc ('vi' cho tiếng Việt)
             
         Returns:
-            List of formatted documents
+            Danh sách tài liệu đã được định dạng
         """
         documents = []
         
-        # Build search query
+        # Xây dựng query tìm kiếm
         search_query = query
         if university and university.lower() in self.universities:
             uni_keywords = self.universities[university.lower()]
             search_query = f"{query} ({' OR '.join(uni_keywords)})"
         
-        print(f"\n🔍 Searching Google Scholar for: {search_query}")
-        print(f"   Language: {language}, Limit: {limit}")
+        print(f"\n🔍 Đang tìm kiếm trên Google Scholar: {search_query}")
+        print(f"   Ngôn ngữ: {language}, Giới hạn: {limit}")
         
-        # Note: Google Scholar doesn't have official API
-        # This is a placeholder for demonstration
-        # In production, use scholarly library or SerpAPI
+        # Lưu ý quan trọng:
+        # Google Scholar KHÔNG có API chính thức
+        # Đây chỉ là mẫu (template) để minh họa
+        # Trong môi trường production, nên sử dụng:
+        # 1. Thư viện scholarly[](https://github.com/scholarly-python-package/scholarly)
+        # 2. SerpAPI[](https://serpapi.com/google-scholar-api)
+        # 3. Kho lưu trữ của trường đại học có API công khai
         
-        print("\n⚠️  IMPORTANT NOTICE:")
-        print("   Google Scholar doesn't have official API")
-        print("   For production use, consider:")
-        print("   1. scholarly library (https://github.com/scholarly-python-package/scholarly)")
-        print("   2. SerpAPI (https://serpapi.com/google-scholar-api)")
-        print("   3. University's own repositories with APIs")
-        print("\n   This crawler is a TEMPLATE - implement actual scraping carefully")
-        print("   to respect Google's ToS and rate limits.\n")
+        print("\n⚠️  LƯU Ý QUAN TRỌNG:")
+        print("   Google Scholar không cung cấp API chính thức")
+        print("   Để dùng trong production, vui lòng cân nhắc:")
+        print("   1. Thư viện scholarly")
+        print("   2. SerpAPI")
+        print("   3. Kho lưu trữ của các trường đại học")
+        print("\n   Crawler này chỉ là TEMPLATE - cần triển khai scraping cẩn thận")
+        print("   để tuân thủ Điều khoản dịch vụ của Google và giới hạn tốc độ.\n")
         
         return documents
     
     def search_by_topic(self, topic: str, limit: int = 20) -> List[Dict]:
         """
-        Search papers by research topic
+        Tìm kiếm bài báo theo chủ đề nghiên cứu
         
         Args:
-            topic: Research topic (e.g., "trí tuệ nhân tạo")
-            limit: Maximum results
+            topic: Chủ đề nghiên cứu (ví dụ: "trí tuệ nhân tạo")
+            limit: Số lượng kết quả tối đa
             
         Returns:
-            List of documents
+            Danh sách tài liệu
         """
         return self.search(query=topic, limit=limit)
     
@@ -107,40 +111,40 @@ class GoogleScholarCrawler(BaseCrawler):
                                   universities: List[str],
                                   limit_per_uni: int = 10) -> List[Dict]:
         """
-        Search across multiple universities
+        Tìm kiếm trên nhiều trường đại học cùng lúc
         
         Args:
-            query: Search query
-            universities: List of university codes ['vnu', 'hust', ...]
-            limit_per_uni: Limit per university
+            query: Từ khóa tìm kiếm
+            universities: Danh sách mã trường ['vnu', 'hust', ...]
+            limit_per_uni: Giới hạn kết quả mỗi trường
             
         Returns:
-            Combined list of documents
+            Danh sách tài liệu tổng hợp từ nhiều trường
         """
         all_docs = []
         
         for uni in universities:
-            print(f"\n[{uni.upper()}] Searching...")
+            print(f"\n[{uni.upper()}] Đang tìm kiếm...")
             docs = self.search(query=query, university=uni, limit=limit_per_uni)
             all_docs.extend(docs)
-            time.sleep(self.delay_seconds * 2)  # Extra delay between universities
+            time.sleep(self.delay_seconds * 2)  # Delay lớn hơn giữa các trường
         
         return all_docs
     
     def _extract_abstract(self, html: str) -> str:
-        """Extract abstract from paper HTML (placeholder)"""
-        # This would parse the paper page HTML
+        """Trích xuất tóm tắt từ HTML của bài báo (placeholder)"""
+        # Hàm này sẽ parse HTML của trang chi tiết bài báo
         return ""
     
     def _clean_text(self, text: str) -> str:
-        """Clean academic text"""
-        # Remove citations like [1], [2]
+        """Làm sạch văn bản học thuật"""
+        # Xóa số tham chiếu [1], [2], ...
         text = re.sub(r'\[\d+\]', '', text)
         
-        # Remove multiple spaces
+        # Xóa khoảng trắng thừa
         text = re.sub(r'\s+', ' ', text)
         
-        # Remove URLs
+        # Xóa URL
         text = re.sub(r'https?://\S+', '', text)
         
         return text.strip()
@@ -148,8 +152,8 @@ class GoogleScholarCrawler(BaseCrawler):
 
 class ArxivCrawler(BaseCrawler):
     """
-    Crawler for ArXiv preprints
-    ArXiv has official API - safe to use
+    Crawler cho bài báo preprint trên ArXiv
+    ArXiv có API chính thức - an toàn và khuyến khích sử dụng
     """
     
     def __init__(self, delay_seconds: float = 3.0, **kwargs):
@@ -158,21 +162,21 @@ class ArxivCrawler(BaseCrawler):
     
     def crawl(self, query: str = '', category: str = 'cs.AI', limit: int = 50) -> List[Dict]:
         """
-        Search ArXiv papers
+        Tìm kiếm bài báo trên ArXiv
         
         Args:
-            query: Search query
-            category: ArXiv category (cs.AI, cs.LG, cs.CV, etc.)
-            limit: Maximum results
+            query: Từ khóa tìm kiếm
+            category: Danh mục ArXiv (cs.AI, cs.LG, cs.CV, ...)
+            limit: Số lượng kết quả tối đa
             
         Returns:
-            List of documents
+            Danh sách tài liệu
         """
         documents = []
         
-        print(f"\n🔍 Searching ArXiv: {query} in {category}")
+        print(f"\n🔍 Đang tìm kiếm trên ArXiv: {query} trong danh mục {category}")
         
-        # Build search query
+        # Xây dựng query tìm kiếm
         if query:
             search_query = f'cat:{category} AND all:{query}'
         else:
@@ -191,11 +195,11 @@ class ArxivCrawler(BaseCrawler):
             if not response:
                 return documents
             
-            # Parse XML response
+            # Phân tích XML response
             from xml.etree import ElementTree as ET
             root = ET.fromstring(response.content)
             
-            # Namespace for ArXiv API
+            # Namespace cho ArXiv API
             ns = {'atom': 'http://www.w3.org/2005/Atom'}
             
             for entry in root.findall('atom:entry', ns):
@@ -203,18 +207,18 @@ class ArxivCrawler(BaseCrawler):
                     title = entry.find('atom:title', ns).text.strip()
                     summary = entry.find('atom:summary', ns).text.strip()
                     
-                    # Get authors
+                    # Lấy tác giả
                     authors = [a.find('atom:name', ns).text 
                               for a in entry.findall('atom:author', ns)]
-                    author_str = ', '.join(authors[:3])  # First 3 authors
+                    author_str = ', '.join(authors[:3])  # Lấy 3 tác giả đầu
                     if len(authors) > 3:
                         author_str += ' et al.'
                     
-                    # Combine title and abstract
+                    # Kết hợp tiêu đề và tóm tắt
                     content = f"{title}\n\n{summary}"
                     content = self._clean_text(content)
                     
-                    # Skip if too short
+                    # Bỏ qua nếu nội dung quá ngắn
                     if len(content.split()) < 100:
                         continue
                     
@@ -230,24 +234,24 @@ class ArxivCrawler(BaseCrawler):
                     documents.append(doc)
                     self.docs_crawled += 1
                     
-                    print(f"  ✅ [{len(documents)}] {title[:60]}... ({doc['word_count']} words)")
+                    print(f"  ✅ [{len(documents)}] {title[:60]}... ({doc['word_count']} từ)")
                     
                 except Exception as e:
-                    print(f"  ⚠️  Error parsing entry: {e}")
+                    print(f"  ⚠️  Lỗi khi phân tích entry: {e}")
                     continue
                 
                 if len(documents) >= limit:
                     break
             
-            print(f"\n✅ Total crawled from ArXiv: {len(documents)} papers\n")
+            print(f"\n✅ Tổng số bài báo thu thập từ ArXiv: {len(documents)}\n")
             
         except Exception as e:
-            print(f"❌ Error searching ArXiv: {e}")
+            print(f"❌ Lỗi khi tìm kiếm ArXiv: {e}")
         
         return documents
     
     def search_vietnamese_ai(self, limit: int = 50) -> List[Dict]:
-        """Search AI papers mentioning Vietnam or Vietnamese"""
+        """Tìm kiếm bài báo AI có đề cập đến Việt Nam hoặc tiếng Việt"""
         return self.crawl(
             query='Vietnam OR Vietnamese',
             category='cs.AI',
@@ -258,15 +262,15 @@ class ArxivCrawler(BaseCrawler):
                            categories: List[str] = None,
                            limit_per_cat: int = 20) -> List[Dict]:
         """
-        Search across multiple ArXiv categories
+        Tìm kiếm trên nhiều danh mục ArXiv cùng lúc
         
         Args:
-            query: Search query
-            categories: List of categories ['cs.AI', 'cs.LG', 'cs.CV']
-            limit_per_cat: Limit per category
+            query: Từ khóa tìm kiếm
+            categories: Danh sách danh mục ['cs.AI', 'cs.LG', 'cs.CV']
+            limit_per_cat: Giới hạn mỗi danh mục
             
         Returns:
-            Combined documents
+            Danh sách tài liệu tổng hợp
         """
         if categories is None:
             categories = ['cs.AI']
@@ -274,7 +278,7 @@ class ArxivCrawler(BaseCrawler):
         all_docs = []
         
         for cat in categories:
-            print(f"\n[{cat}] Searching...")
+            print(f"\n[{cat}] Đang tìm kiếm...")
             docs = self.crawl(query=query, category=cat, limit=limit_per_cat)
             all_docs.extend(docs)
             time.sleep(self.delay_seconds)
@@ -282,15 +286,15 @@ class ArxivCrawler(BaseCrawler):
         return all_docs
     
     def _clean_text(self, text: str) -> str:
-        """Clean ArXiv abstract text"""
-        # Remove LaTeX commands
-        text = re.sub(r'\$[^\$]+\$', '', text)  # Inline math
-        text = re.sub(r'\\[a-zA-Z]+\{[^\}]*\}', '', text)  # LaTeX commands
+        """Làm sạch văn bản tóm tắt từ ArXiv"""
+        # Xóa công thức LaTeX
+        text = re.sub(r'\$[^\$]+\$', '', text)      # Công thức inline
+        text = re.sub(r'\\[a-zA-Z]+\{[^\}]*\}', '', text)  # Lệnh LaTeX
         
-        # Remove multiple newlines
+        # Xóa nhiều dòng trống
         text = re.sub(r'\n+', '\n', text)
         
-        # Remove multiple spaces
+        # Xóa khoảng trắng thừa
         text = re.sub(r'\s+', ' ', text)
         
         return text.strip()

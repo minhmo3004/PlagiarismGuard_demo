@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
+"""
+Script sửa chữa schema cơ sở dữ liệu
+Kiểm tra và tự động thêm các cột bị thiếu trong bảng documents
+"""
+
 import os
 import sys
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-# Add backend to path
+# Thêm đường dẫn backend vào Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.config import settings
 
+
 def fix_db_schema():
-    print("🚀 Checking database schema for missing columns...")
+    print("🚀 Đang kiểm tra schema cơ sở dữ liệu để bổ sung các cột bị thiếu...")
     
-    # Create engine directly from settings
+    # Tạo engine trực tiếp từ settings
     engine = create_engine(settings.DATABASE_URL)
     
-    # Columns to check and add (Name, SQL Type)
+    # Danh sách các cột cần kiểm tra và thêm (Tên cột, Kiểu dữ liệu)
     columns_to_add = [
         ("page_count", "INTEGER"),
         ("error_message", "TEXT"),
@@ -26,14 +32,14 @@ def fix_db_schema():
     
     try:
         with engine.connect() as conn:
-            # Check for table documents
+            # Kiểm tra bảng documents có tồn tại không
             res = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'documents');"))
             if not res.scalar():
-                print("❌ Table 'documents' does not exist. Please run initial setup first.")
+                print("❌ Bảng 'documents' chưa tồn tại. Vui lòng chạy migration ban đầu trước.")
                 return
             
             for col_name, col_type in columns_to_add:
-                # Check if column exists
+                # Kiểm tra cột đã tồn tại chưa
                 check_sql = text(f"""
                     SELECT count(*) 
                     FROM information_schema.columns 
@@ -42,23 +48,23 @@ def fix_db_schema():
                 exists = conn.execute(check_sql).scalar()
                 
                 if exists == 0:
-                    print(f"➕ Adding missing column: {col_name} ({col_type})")
+                    print(f"➕ Đang thêm cột bị thiếu: {col_name} ({col_type})")
                     try:
-                        # For owner_id we might need foreign key check, but let's just add the column for now
+                        # Thêm cột (đối với owner_id tạm thời không thêm ràng buộc foreign key)
                         alter_sql = text(f"ALTER TABLE documents ADD COLUMN {col_name} {col_type};")
                         conn.execute(alter_sql)
-                        # Commit for safety (some DB drivers need it)
-                        conn.commit()
-                        print(f"✅ Column {col_name} added successfully.")
+                        conn.commit()  # Commit để đảm bảo an toàn với một số driver
+                        print(f"✅ Đã thêm cột {col_name} thành công.")
                     except Exception as e:
-                        print(f"⚠️  Error adding column {col_name}: {e}")
+                        print(f"⚠️  Lỗi khi thêm cột {col_name}: {e}")
                 else:
-                    print(f"ℹ️  Column {col_name} already exists.")
+                    print(f"ℹ️  Cột {col_name} đã tồn tại.")
             
-            print("\n🎉 Database schema update complete!")
+            print("\n🎉 Hoàn tất cập nhật schema cơ sở dữ liệu!")
             
     except Exception as e:
-        print(f"❌ Connection error: {e}")
+        print(f"❌ Lỗi kết nối cơ sở dữ liệu: {e}")
+
 
 if __name__ == "__main__":
     fix_db_schema()

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Quick script to check Wikipedia articles in corpus"""
+"""
+Script nhanh để kiểm tra số lượng và chất lượng bài viết Wikipedia trong corpus
+"""
+
 import sys
 sys.path.insert(0, '/app')
 
@@ -9,52 +12,52 @@ from sqlalchemy import func
 
 db = SessionLocal()
 
-# Total corpus
+# Tổng số tài liệu trong corpus
 total = db.query(func.count(Document.id)).filter(Document.is_corpus == 1).scalar()
 
-# Wikipedia articles
+# Bài viết từ Wikipedia
 wiki = db.query(func.count(Document.id)).filter(
     Document.extraction_method == 'wikipedia_crawler'
 ).scalar()
 
-# ArXiv papers
+# Bài báo từ ArXiv
 arxiv = db.query(func.count(Document.id)).filter(
     Document.extraction_method == 'arxiv_crawler'
 ).scalar()
 
-# Synthetic articles
+# Tài liệu tổng hợp (synthetic)
 synthetic = total - wiki - arxiv
 
-print(f"\n📊 CORPUS STATISTICS")
+print(f"\n📊 THỐNG KÊ CORPUS")
 print(f"{'='*50}")
-print(f"Total corpus documents: {total:,}")
-print(f"  • Wikipedia articles: {wiki:,} ({wiki/total*100:.1f}%)")
-print(f"  • ArXiv papers: {arxiv:,} ({arxiv/total*100:.1f}%)")
-print(f"  • Synthetic documents: {synthetic:,} ({synthetic/total*100:.1f}%)")
+print(f"Tổng số tài liệu trong corpus: {total:,}")
+print(f"  • Bài viết Wikipedia: {wiki:,} ({wiki/total*100:.1f}%)")
+print(f"  • Bài báo ArXiv: {arxiv:,} ({arxiv/total*100:.1f}%)")
+print(f"  • Tài liệu tổng hợp: {synthetic:,} ({synthetic/total*100:.1f}%)")
 print(f"{'='*50}\n")
 
-# Recent Wikipedia articles
+# 10 bài viết Wikipedia gần đây nhất
 recent = db.query(Document.title, Document.word_count).filter(
     Document.extraction_method == 'wikipedia_crawler'
 ).order_by(Document.created_at.desc()).limit(10).all()
 
 if recent:
-    print(f"📝 Recent Wikipedia Articles (last 10):")
+    print(f"📝 10 bài viết Wikipedia gần đây nhất:")
     print(f"{'-'*50}")
     for i, (title, wc) in enumerate(recent, 1):
-        print(f"{i:2}. {title[:42]:42} ({wc:4} words)")
+        print(f"{i:2}. {title[:42]:42} ({wc:4} từ)")
     print()
 
-# Recent ArXiv papers
+# 10 bài báo ArXiv gần đây nhất
 recent_arxiv = db.query(Document.title, Document.word_count).filter(
     Document.extraction_method == 'arxiv_crawler'
 ).order_by(Document.created_at.desc()).limit(10).all()
 
 if recent_arxiv:
-    print(f"📄 Recent ArXiv Papers (last 10):")
+    print(f"📄 10 bài báo ArXiv gần đây nhất:")
     print(f"{'-'*50}")
     for i, (title, wc) in enumerate(recent_arxiv, 1):
-        print(f"{i:2}. {title[:42]:42} ({wc:4} words)")
+        print(f"{i:2}. {title[:42]:42} ({wc:4} từ)")
     print()
 
 db.close()

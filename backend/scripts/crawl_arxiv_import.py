@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
 """
-Crawl ArXiv and Import to Corpus
+Script thu thập bài báo từ ArXiv và nhập vào Corpus
 
-Crawl academic papers from ArXiv preprint server and import to database.
+Thu thập các bài báo học thuật từ máy chủ preprint ArXiv và nhập vào cơ sở dữ liệu.
 
-Usage:
-    # Crawl AI papers
+Cách sử dụng:
+    # Thu thập bài báo AI
     python scripts/crawl_arxiv_import.py --ai 50
     
-    # Crawl machine learning papers
+    # Thu thập bài báo Machine Learning
     python scripts/crawl_arxiv_import.py --ml 50
     
-    # Crawl computer vision papers
+    # Thu thập bài báo Computer Vision
     python scripts/crawl_arxiv_import.py --cv 30
     
-    # Crawl Vietnamese-related papers
+    # Thu thập bài báo liên quan đến Việt Nam
     python scripts/crawl_arxiv_import.py --vietnamese 100
     
-    # Crawl and sync to Redis
+    # Thu thập và đồng bộ ngay vào Redis
     python scripts/crawl_arxiv_import.py --ai 50 --sync-redis
 
-Examples:
-    # Quick test
+Ví dụ:
+    # Test nhanh
     python scripts/crawl_arxiv_import.py --ai 10
     
-    # Large batch across categories
+    # Thu thập lớn theo nhiều chuyên mục
     python scripts/crawl_arxiv_import.py --multi-category 20 --sync-redis
 """
 import os
@@ -43,7 +43,7 @@ from app.services.preprocessing.vietnamese_nlp import preprocess_vietnamese
 from app.services.preprocessing.text_normalizer import normalize_text
 from crawlers.academic_crawlers import ArxivCrawler
 
-# Setup logging
+# Cấu hình logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -53,48 +53,48 @@ logger = logging.getLogger(__name__)
 
 def import_documents_to_db(documents: list, db_session) -> int:
     """
-    Import crawled documents to PostgreSQL database
+    Nhập các tài liệu đã thu thập vào cơ sở dữ liệu PostgreSQL
     
     Args:
-        documents: List of document dicts from crawler
-        db_session: SQLAlchemy database session
+        documents: Danh sách tài liệu từ crawler
+        db_session: Session SQLAlchemy
         
     Returns:
-        Number of successfully imported documents
+        Số lượng tài liệu nhập thành công
     """
     imported = 0
     skipped = 0
     
     logger.info(f"\n{'='*70}")
-    logger.info(f"📥 IMPORTING {len(documents)} DOCUMENTS TO DATABASE")
+    logger.info(f"📥 ĐANG NHẬP {len(documents)} TÀI LIỆU VÀO DATABASE")
     logger.info(f"{'='*70}\n")
     
     for i, doc_data in enumerate(documents, 1):
         try:
-            # Normalize and tokenize
+            # Chuẩn hóa và tokenize văn bản
             text = doc_data['content']
             normalized = normalize_text(text)
             tokens = preprocess_vietnamese(normalized)
             word_count = len(tokens)
             
-            # Skip if too short (ArXiv papers should be substantial)
+            # Bỏ qua nếu bài quá ngắn
             if word_count < 100:
-                logger.warning(f"⚠️  [{i}/{len(documents)}] {doc_data['title'][:40]}... - Too short ({word_count} words), skipped")
+                logger.warning(f"⚠️  [{i}/{len(documents)}] {doc_data['title'][:40]}... - Quá ngắn ({word_count} từ), bỏ qua")
                 skipped += 1
                 continue
             
-            # Check duplicate by hash
+            # Kiểm tra trùng lặp theo hash
             text_hash = hashlib.sha256(text.encode()).hexdigest()
             existing = db_session.query(Document).filter(
                 Document.file_hash_sha256 == text_hash
             ).first()
             
             if existing:
-                logger.warning(f"⚠️  [{i}/{len(documents)}] {doc_data['title'][:40]}... - Duplicate, skipped")
+                logger.warning(f"⚠️  [{i}/{len(documents)}] {doc_data['title'][:40]}... - Trùng lặp, bỏ qua")
                 skipped += 1
                 continue
             
-            # Create document record
+            # Tạo bản ghi Document
             doc = Document(
                 id=uuid.uuid4(),
                 title=doc_data['title'][:500],
@@ -105,10 +105,10 @@ def import_documents_to_db(documents: list, db_session) -> int:
                 file_hash_sha256=text_hash,
                 file_size_bytes=len(text.encode()),
                 word_count=word_count,
-                language='en',  # ArXiv is mostly English
+                language='en',                    # ArXiv chủ yếu là tiếng Anh
                 extraction_method='arxiv_crawler',
                 extracted_text=text,
-                is_corpus=1,  # Mark as corpus document
+                is_corpus=1,                      # Đánh dấu là tài liệu corpus
                 status='indexed',
                 indexed_at=datetime.now()
             )
@@ -116,102 +116,102 @@ def import_documents_to_db(documents: list, db_session) -> int:
             db_session.add(doc)
             imported += 1
             
-            logger.info(f"✅ [{imported}/{len(documents)}] {doc_data['title'][:50]}... - {word_count} words")
+            logger.info(f"✅ [{imported}/{len(documents)}] {doc_data['title'][:50]}... - {word_count} từ")
             
-            # Commit in batches
+            # Commit theo batch
             if imported % 50 == 0:
                 try:
                     db_session.commit()
-                    logger.info(f"   💾 Committed {imported} documents...")
+                    logger.info(f"   💾 Đã lưu {imported} tài liệu...")
                 except Exception as commit_err:
-                    logger.error(f"❌ Batch commit error: {commit_err}")
+                    logger.error(f"❌ Lỗi commit batch: {commit_err}")
                     db_session.rollback()
         
         except Exception as e:
-            logger.error(f"❌ [{i}/{len(documents)}] Error: {e}")
-            db_session.rollback()  # Reset session state
+            logger.error(f"❌ [{i}/{len(documents)}] Lỗi: {e}")
+            db_session.rollback()
             skipped += 1
     
-    # Final commit
+    # Commit lần cuối
     try:
         db_session.commit()
     except Exception as e:
-        logger.error(f"❌ Final commit error: {e}")
+        logger.error(f"❌ Lỗi commit cuối cùng: {e}")
         db_session.rollback()
     
     logger.info(f"\n{'='*70}")
-    logger.info(f"✅ Import Summary:")
-    logger.info(f"   • Successfully imported: {imported} documents")
-    logger.info(f"   • Skipped/Failed: {skipped} documents")
-    logger.info(f"   • Total processed: {len(documents)} documents")
+    logger.info(f"✅ Tóm tắt nhập liệu:")
+    logger.info(f"   • Nhập thành công: {imported} tài liệu")
+    logger.info(f"   • Bỏ qua / Lỗi: {skipped} tài liệu")
+    logger.info(f"   • Tổng đã xử lý: {len(documents)} tài liệu")
     logger.info(f"{'='*70}\n")
     
     return imported
 
 
 def sync_to_redis():
-    """Sync corpus to Redis LSH index by restarting backend"""
-    logger.info("\n⚠️  TO SYNC TO REDIS LSH INDEX:")
-    logger.info("   Run: docker restart plagiarism-backend")
-    logger.info("   Or use --sync-redis flag next time\n")
+    """Hướng dẫn đồng bộ corpus vào Redis LSH index"""
+    logger.info("\n⚠️  ĐỂ ĐỒNG BỘ VÀO REDIS LSH INDEX:")
+    logger.info("   Chạy lệnh: docker restart plagiarism-backend")
+    logger.info("   Hoặc dùng flag --sync-redis ở lần chạy sau\n")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Crawl ArXiv papers and import to corpus database'
+        description='Thu thập bài báo ArXiv và nhập vào corpus'
     )
     
-    # Crawl mode selection
+    # Chọn chế độ thu thập
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--ai', type=int, metavar='N',
-                      help='Crawl N AI papers (cs.AI)')
+                      help='Thu thập N bài báo AI (cs.AI)')
     group.add_argument('--ml', type=int, metavar='N',
-                      help='Crawl N machine learning papers (cs.LG)')
+                      help='Thu thập N bài báo Machine Learning (cs.LG)')
     group.add_argument('--cv', type=int, metavar='N',
-                      help='Crawl N computer vision papers (cs.CV)')
+                      help='Thu thập N bài báo Computer Vision (cs.CV)')
     group.add_argument('--nlp', type=int, metavar='N',
-                      help='Crawl N NLP papers (cs.CL)')
+                      help='Thu thập N bài báo NLP (cs.CL)')
     group.add_argument('--vietnamese', type=int, metavar='N',
-                      help='Crawl N Vietnamese-related papers')
+                      help='Thu thập N bài báo liên quan đến Việt Nam')
     group.add_argument('--multi-category', type=int, metavar='N',
-                      help='Crawl N papers from each major category')
+                      help='Thu thập N bài báo từ mỗi chuyên mục chính')
     
-    # Options
+    # Tùy chọn bổ sung
     parser.add_argument('--sync-redis', action='store_true',
-                       help='Sync to Redis immediately after import (requires Docker)')
+                       help='Đồng bộ ngay vào Redis sau khi nhập (yêu cầu Docker)')
     
     args = parser.parse_args()
     
-    # Initialize crawler
+    # Khởi tạo crawler
     crawler = ArxivCrawler(delay_seconds=3.0)
     
-    logger.info("\n🚀 Starting ArXiv Crawler...")
+    logger.info("\n🚀 Đang khởi động ArXiv Crawler...")
     
-    # Determine crawl mode and execute
+    # Xác định chế độ và thực hiện thu thập
     documents = []
     
     if args.ai:
-        logger.info(f"Mode: AI papers (cs.AI, n={args.ai})")
+        logger.info(f"Chế độ: Bài báo AI (cs.AI, n={args.ai})")
         documents = crawler.crawl(query='', category='cs.AI', limit=args.ai)
         
     elif args.ml:
-        logger.info(f"Mode: Machine Learning papers (cs.LG, n={args.ml})")
+        logger.info(f"Chế độ: Machine Learning (cs.LG, n={args.ml})")
         documents = crawler.crawl(query='', category='cs.LG', limit=args.ml)
         
     elif args.cv:
-        logger.info(f"Mode: Computer Vision papers (cs.CV, n={args.cv})")
+        logger.info(f"Chế độ: Computer Vision (cs.CV, n={args.cv})")
         documents = crawler.crawl(query='', category='cs.CV', limit=args.cv)
         
     elif args.nlp:
-        logger.info(f"Mode: NLP papers (cs.CL, n={args.nlp})")
+        logger.info(f"Chế độ: NLP (cs.CL, n={args.nlp})")
         documents = crawler.crawl(query='', category='cs.CL', limit=args.nlp)
         
     elif args.vietnamese:
-        logger.info(f"Mode: Vietnamese-related papers (n={args.vietnamese})")
+        logger.info(f"Chế độ: Bài báo liên quan đến Việt Nam (n={args.vietnamese})")
         documents = crawler.search_vietnamese_ai(limit=args.vietnamese)
         
     elif args.multi_category:
-        logger.info(f"Mode: Multi-category ({args.multi_category} per category)")
+        logger.info(f"Chế độ: Đa chuyên mục ({args.multi_category} bài mỗi chuyên mục)")
         categories = ['cs.AI', 'cs.LG', 'cs.CV', 'cs.CL', 'cs.CR']
         documents = crawler.search_by_categories(
             query='',
@@ -219,22 +219,22 @@ def main():
             limit_per_cat=args.multi_category
         )
     
-    # Import to database
+    # Nhập vào database
     if documents:
         db = SessionLocal()
         try:
             imported = import_documents_to_db(documents, db)
-            logger.info(f"✅ Successfully imported {imported} documents to database")
+            logger.info(f"✅ Đã nhập thành công {imported} tài liệu vào database")
             
-            # Sync to Redis if requested
+            # Đồng bộ Redis nếu có yêu cầu
             if args.sync_redis:
-                logger.info("\n🔄 Syncing to Redis...")
+                logger.info("\n🔄 Đang đồng bộ vào Redis...")
                 import subprocess
                 try:
                     subprocess.run(['docker', 'restart', 'plagiarism-backend'], check=True)
-                    logger.info("✅ Backend restarted - Redis will sync on startup")
+                    logger.info("✅ Đã restart backend - Redis sẽ đồng bộ khi khởi động lại")
                 except Exception as e:
-                    logger.error(f"❌ Failed to restart backend: {e}")
+                    logger.error(f"❌ Không thể restart backend: {e}")
                     sync_to_redis()
             else:
                 sync_to_redis()
@@ -242,9 +242,9 @@ def main():
         finally:
             db.close()
     else:
-        logger.warning("❌ No documents crawled. Exiting...")
+        logger.warning("❌ Không thu thập được tài liệu nào. Kết thúc...")
     
-    logger.info("\n✅ Done!")
+    logger.info("\n✅ Hoàn tất!")
 
 
 if __name__ == '__main__':

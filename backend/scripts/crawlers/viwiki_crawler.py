@@ -1,20 +1,20 @@
 """
-Vietnamese Wikipedia Crawler
-Crawls random Vietnamese Wikipedia articles using MediaWiki API
+Crawler cho Wikipedia tiếng Việt
+Thu thập các bài viết ngẫu nhiên hoặc theo chuyên mục từ Wikipedia tiếng Việt bằng MediaWiki API
 
-Features:
-- Random article crawling
-- Category-based crawling (Technology, Science, etc.)
-- Text cleaning and filtering
-- Rate limiting to respect Wikipedia ToS
+Tính năng:
+- Thu thập bài viết ngẫu nhiên
+- Thu thập theo chuyên mục (Công nghệ, Khoa học, ...)
+- Làm sạch văn bản và lọc nội dung
+- Giới hạn tốc độ để tôn trọng Điều khoản dịch vụ của Wikipedia
 
-Usage:
+Cách sử dụng:
     from crawlers.viwiki_crawler import ViWikiCrawler
     
     crawler = ViWikiCrawler()
-    docs = crawler.crawl(limit=100)  # Random articles
+    docs = crawler.crawl(limit=100)                    # Bài viết ngẫu nhiên
     
-    # Or crawl from specific category
+    # Hoặc thu thập theo chuyên mục cụ thể
     docs = crawler.crawl_category('Khoa_học_máy_tính', limit=50)
 """
 import re
@@ -23,13 +23,13 @@ from .base_crawler import BaseCrawler
 
 
 class ViWikiCrawler(BaseCrawler):
-    """Crawler for Vietnamese Wikipedia"""
+    """Crawler cho Wikipedia tiếng Việt"""
     
     def __init__(self, delay_seconds: float = 1.5, **kwargs):
         super().__init__(delay_seconds=delay_seconds, **kwargs)
         self.api_url = "https://vi.wikipedia.org/w/api.php"
         
-        # Technology & Science categories for targeted crawling
+        # Các chuyên mục Công nghệ & Khoa học để thu thập có chủ đích
         self.tech_categories = [
             'Khoa_học_máy_tính',
             'Trí_tuệ_nhân_tạo',
@@ -43,25 +43,25 @@ class ViWikiCrawler(BaseCrawler):
         
     def crawl(self, limit: int = 100) -> List[Dict]:
         """
-        Crawl random Vietnamese Wikipedia articles
+        Thu thập bài viết ngẫu nhiên từ Wikipedia tiếng Việt
         
         Args:
-            limit: Number of articles to crawl
+            limit: Số lượng bài viết tối đa cần thu thập
             
         Returns:
-            List of formatted documents
+            Danh sách tài liệu đã được định dạng chuẩn
         """
         documents = []
         
-        print(f"\n🔍 Crawling Vietnamese Wikipedia for {limit} articles...")
+        print(f"\n🔍 Đang thu thập {limit} bài viết ngẫu nhiên từ Wikipedia tiếng Việt...")
         
         for i in range(limit):
-            # Get random article
+            # Lấy bài viết ngẫu nhiên
             params = {
                 'action': 'query',
                 'format': 'json',
                 'list': 'random',
-                'rnnamespace': 0,  # Main namespace only
+                'rnnamespace': 0,      # Chỉ lấy không gian chính (bài viết)
                 'rnlimit': 1
             }
             
@@ -73,13 +73,13 @@ class ViWikiCrawler(BaseCrawler):
                 data = response.json()
                 page_id = data['query']['random'][0]['id']
                 
-                # Get article content
+                # Lấy nội dung chi tiết của bài viết
                 content_params = {
                     'action': 'query',
                     'format': 'json',
                     'pageids': page_id,
                     'prop': 'extracts|info',
-                    'explaintext': True,
+                    'explaintext': True,           # Lấy văn bản thuần
                     'exsectionformat': 'plain'
                 }
                 
@@ -93,23 +93,23 @@ class ViWikiCrawler(BaseCrawler):
                 title = page.get('title', '')
                 extract = page.get('extract', '')
                 
-                # Filter out short articles or stubs
-                if len(extract) < 200:  # Skip very short articles
+                # Bỏ qua bài viết quá ngắn hoặc là bản nháp (stub)
+                if len(extract) < 200:
                     continue
                 
-                # Clean text
+                # Làm sạch văn bản
                 extract = self._clean_text(extract)
                 
-                # Skip if too short after cleaning or not enough words
+                # Bỏ qua nếu sau khi làm sạch vẫn quá ngắn
                 if len(extract) < 150 or len(extract.split()) < 50:
                     continue
                 
-                # Count words (rough estimate)
+                # Đếm số từ (ước lượng)
                 word_count = len(extract.split())
                 
                 doc = self.format_document(
                     title=title,
-                    content=extract[:10000],  # Limit to 10000 chars
+                    content=extract[:10000],           # Giới hạn 10.000 ký tự
                     author="Wikipedia Contributors",
                     university="Vietnamese Wikipedia",
                     source=f"vi.wikipedia.org/wiki/{title.replace(' ', '_')}"
@@ -119,44 +119,44 @@ class ViWikiCrawler(BaseCrawler):
                 documents.append(doc)
                 self.docs_crawled += 1
                 
-                print(f"  ✅ [{i + 1}/{limit}] {title[:50]}... ({word_count} words)")
+                print(f"  ✅ [{i + 1}/{limit}] {title[:50]}... ({word_count} từ)")
                 
                 if len(documents) >= limit:
                     break
                     
             except Exception as e:
-                print(f"  ⚠️  Error processing article: {e}")
+                print(f"  ⚠️  Lỗi khi xử lý bài viết: {e}")
                 continue
             
-            # Rate limit
+            # Giới hạn tốc độ
             self._rate_limit()
         
-        print(f"\n✅ Total crawled from Wikipedia: {len(documents)} articles\n")
+        print(f"\n✅ Tổng số bài viết thu thập từ Wikipedia: {len(documents)}\n")
         return documents
     
     def crawl_category(self, category: str, limit: int = 100) -> List[Dict]:
         """
-        Crawl articles from a specific Wikipedia category
+        Thu thập bài viết từ một chuyên mục cụ thể trên Wikipedia
         
         Args:
-            category: Category name (e.g., 'Khoa_học_máy_tính')
-            limit: Number of articles to crawl
+            category: Tên chuyên mục (ví dụ: 'Khoa_học_máy_tính')
+            limit: Số lượng bài viết tối đa
             
         Returns:
-            List of formatted documents
+            Danh sách tài liệu đã định dạng
         """
         documents = []
         
-        print(f"\n🔍 Crawling category: {category} ({limit} articles max)...")
+        print(f"\n🔍 Đang thu thập chuyên mục: {category} (tối đa {limit} bài)...")
         
-        # Get pages in category
+        # Lấy danh sách trang thuộc chuyên mục
         params = {
             'action': 'query',
             'format': 'json',
             'list': 'categorymembers',
             'cmtitle': f'Category:{category}',
-            'cmlimit': min(limit * 2, 500),  # Get more to filter
-            'cmnamespace': 0  # Main namespace only
+            'cmlimit': min(limit * 2, 500),   # Lấy dư để lọc
+            'cmnamespace': 0                  # Chỉ lấy bài viết chính
         }
         
         response = self._retry_request(self.api_url, params=params)
@@ -170,7 +170,7 @@ class ViWikiCrawler(BaseCrawler):
             for page in pages[:limit]:
                 page_title = page['title']
                 
-                # Get article content
+                # Lấy nội dung bài viết
                 content_params = {
                     'action': 'query',
                     'format': 'json',
@@ -189,11 +189,11 @@ class ViWikiCrawler(BaseCrawler):
                 
                 extract = page_data.get('extract', '')
                 
-                # Filter out short articles
+                # Bỏ qua bài quá ngắn
                 if len(extract) < 500:
                     continue
                 
-                # Clean text
+                # Làm sạch văn bản
                 extract = self._clean_text(extract)
                 word_count = len(extract.split())
                 
@@ -208,7 +208,7 @@ class ViWikiCrawler(BaseCrawler):
                 doc['category'] = category
                 
                 documents.append(doc)
-                print(f"  ✅ [{len(documents)}/{limit}] {page_title[:50]}... ({word_count} words)")
+                print(f"  ✅ [{len(documents)}/{limit}] {page_title[:50]}... ({word_count} từ)")
                 
                 if len(documents) >= limit:
                     break
@@ -216,72 +216,71 @@ class ViWikiCrawler(BaseCrawler):
                 self._rate_limit()
                 
         except Exception as e:
-            print(f"  ❌ Error crawling category: {e}")
+            print(f"  ❌ Lỗi khi thu thập chuyên mục: {e}")
         
-        print(f"\n✅ Total crawled from {category}: {len(documents)} articles\n")
+        print(f"\n✅ Tổng số bài viết thu thập từ {category}: {len(documents)}\n")
         return documents
     
     def crawl_tech_categories(self, limit_per_category: int = 20) -> List[Dict]:
         """
-        Crawl articles from all technology-related categories
+        Thu thập bài viết từ tất cả các chuyên mục công nghệ
         
         Args:
-            limit_per_category: Number of articles per category
+            limit_per_category: Số bài viết tối đa cho mỗi chuyên mục
             
         Returns:
-            List of all documents from tech categories
+            Danh sách tất cả tài liệu từ các chuyên mục công nghệ
         """
         all_documents = []
         
         print(f"\n{'='*70}")
-        print(f"🔍 CRAWLING TECH CATEGORIES FROM VIETNAMESE WIKIPEDIA")
+        print(f"🔍 ĐANG THU THẬP CÁC CHUYÊN MỤC CÔNG NGHỆ TỪ WIKIPEDIA TIẾNG VIỆT")
         print(f"{'='*70}")
-        print(f"Categories: {len(self.tech_categories)}")
-        print(f"Limit per category: {limit_per_category}")
-        print(f"Expected total: ~{len(self.tech_categories) * limit_per_category}\n")
+        print(f"Số chuyên mục: {len(self.tech_categories)}")
+        print(f"Giới hạn mỗi chuyên mục: {limit_per_category}")
+        print(f"Dự kiến tổng số: ~{len(self.tech_categories) * limit_per_category}\n")
         
         for i, category in enumerate(self.tech_categories, 1):
-            print(f"[{i}/{len(self.tech_categories)}] Category: {category}")
+            print(f"[{i}/{len(self.tech_categories)}] Chuyên mục: {category}")
             docs = self.crawl_category(category, limit=limit_per_category)
             all_documents.extend(docs)
         
         print(f"\n{'='*70}")
-        print(f"✅ TOTAL CRAWLED: {len(all_documents)} articles")
+        print(f"✅ TỔNG SỐ BÀI VIẾT ĐÃ THU THẬP: {len(all_documents)}")
         print(f"{'='*70}\n")
         
         return all_documents
     
     def _clean_text(self, text: str) -> str:
-        """Clean Wikipedia text"""
-        # Remove multiple newlines
+        """Làm sạch văn bản Wikipedia"""
+        # Xóa nhiều dòng trống liên tiếp
         text = re.sub(r'\n{3,}', '\n\n', text)
-        # Remove == headers ==
+        # Xóa tiêu đề dạng == Tiêu đề ==
         text = re.sub(r'={2,}.*?={2,}', '', text)
-        # Remove citation markers [1], [2], etc.
+        # Xóa số tham chiếu [1], [2], ...
         text = re.sub(r'\[\d+\]', '', text)
-        # Remove (tiếng ...: ...) language references
+        # Xóa chú thích ngôn ngữ (tiếng Anh: ...)
         text = re.sub(r'\(tiếng [^)]+\)', '', text)
         return text.strip()
 
 
 if __name__ == "__main__":
-    # Test crawler
+    # Phần test crawler
     import sys
     
     crawler = ViWikiCrawler()
     
     if len(sys.argv) > 1 and sys.argv[1] == '--test':
-        # Quick test
-        print("Testing random article crawl...")
+        # Test nhanh
+        print("Đang test thu thập bài viết ngẫu nhiên...")
         docs = crawler.crawl(limit=3)
         
         if docs:
-            print(f"\n📊 Sample document:")
+            print(f"\n📊 Ví dụ một tài liệu:")
             doc = docs[0]
-            print(f"Title: {doc['title']}")
-            print(f"Words: {doc.get('word_count', 'N/A')}")
-            print(f"Content preview: {doc['content'][:200]}...")
+            print(f"Tiêu đề: {doc['title']}")
+            print(f"Số từ: {doc.get('word_count', 'N/A')}")
+            print(f"Xem trước nội dung: {doc['content'][:200]}...")
     else:
-        # Full crawl
-        print("Use: python -m crawlers.viwiki_crawler --test")
-        print("Or import in another script")
+        print("Cách dùng: python -m crawlers.viwiki_crawler --test")
+        print("Hoặc import trong script khác")

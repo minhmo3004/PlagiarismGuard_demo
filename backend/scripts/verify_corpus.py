@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-Verify Corpus - Check corpus meets requirements
-Kiểm tra corpus có đủ 3000+ documents, mỗi doc 500-1000 words
+XÁC THỰC CORPUS - Kiểm tra corpus có đạt yêu cầu không
+
+Kiểm tra corpus có đủ 3000+ tài liệu, mỗi tài liệu từ 500-1000 từ.
 """
+
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -11,25 +13,26 @@ from app.db.database import SessionLocal
 from app.db.models import Document
 from sqlalchemy import func
 
+
 def main():
     db = SessionLocal()
     
-    # Total documents
+    # Tổng số tài liệu đã lập chỉ mục
     total = db.query(Document).filter(Document.status == 'indexed').count()
     
     print(f"\n{'='*70}")
-    print(f"📊 CORPUS VERIFICATION REPORT")
+    print(f"📊 BÁO CÁO XÁC THỰC CORPUS")
     print(f"{'='*70}\n")
-    print(f"✅ Total documents: {total:,}")
+    print(f"✅ Tổng số tài liệu: {total:,}")
     
-    # Word count ranges
+    # Phân bố theo số từ
     ranges = [
         ('< 500 từ', 0, 499),
         ('500-1000 từ (MỤC TIÊU)', 500, 1000),
         ('> 1000 từ', 1001, 10000)
     ]
     
-    print(f"\n📈 Word Count Distribution:")
+    print(f"\n📈 Phân bố số từ:")
     print(f"{'-'*70}")
     
     range_counts = {}
@@ -41,58 +44,59 @@ def main():
         ).count()
         pct = (count / total * 100) if total > 0 else 0
         range_counts[label] = count
-        print(f"  {label:30} {count:6,} docs ({pct:5.1f}%)")
+        print(f"  {label:30} {count:6,} tài liệu ({pct:5.1f}%)")
     
-    # Statistics
+    # Thống kê số từ
     stats = db.query(
         func.min(Document.word_count).label('min'),
         func.max(Document.word_count).label('max'),
         func.avg(Document.word_count).label('avg')
     ).filter(Document.status == 'indexed').first()
     
-    print(f"\n📊 Word Count Statistics:")
+    print(f"\n📊 Thống kê số từ:")
     print(f"{'-'*70}")
-    print(f"  Minimum:  {stats.min:4} words")
-    print(f"  Maximum:  {stats.max:4} words")
-    print(f"  Average:  {int(stats.avg):4} words")
+    print(f"  Nhỏ nhất:  {stats.min:4} từ")
+    print(f"  Lớn nhất:  {stats.max:4} từ")
+    print(f"  Trung bình: {int(stats.avg):4} từ")
     
-    # Check target
+    # Kiểm tra yêu cầu mục tiêu
     target_count = range_counts['500-1000 từ (MỤC TIÊU)']
     
     print(f"\n{'='*70}")
-    print(f"🎯 TARGET VERIFICATION:")
+    print(f"🎯 KIỂM TRA YÊU CẦU:")
     print(f"{'-'*70}")
     
-    # Check requirements
+    # Kiểm tra các tiêu chí
     req_total = total >= 3000
     req_range = target_count >= 3000
     
-    print(f"  Requirement 1: ≥ 3000 documents")
-    print(f"    Status: {'✅ PASS' if req_total else '❌ FAIL'} ({total:,} docs)")
+    print(f"  Yêu cầu 1: ≥ 3000 tài liệu")
+    print(f"    Trạng thái: {'✅ ĐẠT' if req_total else '❌ CHƯA ĐẠT'} ({total:,} tài liệu)")
     print()
-    print(f"  Requirement 2: ≥ 3000 docs in 500-1000 word range")  
-    print(f"    Status: {'✅ PASS' if req_range else '❌ FAIL'} ({target_count:,} docs)")
+    print(f"  Yêu cầu 2: ≥ 3000 tài liệu trong khoảng 500-1000 từ")  
+    print(f"    Trạng thái: {'✅ ĐẠT' if req_range else '❌ CHƯA ĐẠT'} ({target_count:,} tài liệu)")
     print()
     
     if req_total and req_range:
-        print(f"✅ ALL REQUIREMENTS MET!")
-        print(f"   • {total:,} total documents")
-        print(f"   • {target_count:,} docs in target range (500-1000 words)")
+        print(f"✅ ĐÃ ĐẠT TOÀN BỘ YÊU CẦU!")
+        print(f"   • Tổng số tài liệu: {total:,}")
+        print(f"   • Số tài liệu trong khoảng mục tiêu (500-1000 từ): {target_count:,}")
     elif req_total:
-        print(f"⚠️  PARTIAL: {total:,} docs total, but only {target_count:,} in 500-1000 range")
+        print(f"⚠️  ĐẠT MỘT PHẦN: Có {total:,} tài liệu, nhưng chỉ có {target_count:,} tài liệu trong khoảng 500-1000 từ")
         missing = 3000 - target_count
-        print(f"   • Need {missing:,} more docs in 500-1000 word range")
+        print(f"   • Cần thêm {missing:,} tài liệu trong khoảng 500-1000 từ")
     else:
-        print(f"❌ NOT MET: Only {total:,} documents (need 3000+)")
+        print(f"❌ CHƯA ĐẠT: Chỉ có {total:,} tài liệu (cần ít nhất 3000)")
         missing = 3000 - total
-        print(f"   • Need {missing:,} more documents")
+        print(f"   • Cần thêm {missing:,} tài liệu")
     
     print(f"{'='*70}\n")
     
     db.close()
     
-    # Exit code: 0 if all requirements met, 1 otherwise
+    # Exit code: 0 nếu đạt tất cả yêu cầu, 1 nếu chưa đạt
     sys.exit(0 if (req_total and req_range) else 1)
+
 
 if __name__ == '__main__':
     main()

@@ -1,5 +1,5 @@
 """
-Celery tasks for background processing
+Celery tasks cho xử lý nền (background processing)
 """
 from celery import Task
 from celery.exceptions import MaxRetriesExceededError
@@ -20,67 +20,67 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Retry configuration
-RETRY_DELAYS = [60, 300, 900]  # 1min, 5min, 15min
+# Cấu hình retry
+RETRY_DELAYS = [60, 300, 900]  # 1 phút, 5 phút, 15 phút
 MAX_RETRIES = 3
 
 
 class TransientError(Exception):
-    """Temporary error that should be retried"""
+    """Lỗi tạm thời - nên thử lại (retry)"""
     pass
 
 
 class PermanentError(Exception):
-    """Permanent error that should not be retried"""
+    """Lỗi vĩnh viễn - không nên thử lại"""
     pass
 
 
 @app.task(bind=True, max_retries=MAX_RETRIES)
 def process_document(self: Task, job_id: str, doc_id: str, file_type: str):
     """
-    Process document for plagiarism check
+    Xử lý tài liệu để kiểm tra đạo văn (background task)
     
-    Steps:
-    1. Validate file
-    2. Extract text
-    3. Preprocess (Vietnamese NLP)
-    4. Create shingles
-    5. Create MinHash
-    6. Query LSH
-    7. Deep comparison
-    8. Save results
+    Các bước thực hiện:
+    1. Kiểm tra tính hợp lệ của file
+    2. Trích xuất văn bản
+    3. Tiền xử lý (NLP tiếng Việt)
+    4. Tạo shingles
+    5. Tạo chữ ký MinHash
+    6. Truy vấn LSH
+    7. So sánh sâu (nếu cần)
+    8. Lưu kết quả vào database
     
     Args:
-        job_id: Unique job identifier
-        file_path: Path to uploaded file
-        file_type: File extension (pdf, docx, txt, tex)
+        job_id: Mã công việc duy nhất
+        doc_id: ID của tài liệu trong database
+        file_type: Đuôi file (pdf, docx, txt, tex)
     """
     try:
-        logger.info(f"Starting job {job_id} (doc={doc_id})")
+        logger.info(f"Bắt đầu xử lý job {job_id} (doc={doc_id})")
 
-        # DB session
+        # Tạo session database
         db = SessionLocal()
 
-        # Load document record
+        # Load thông tin tài liệu
         doc = None
         try:
             from app.db import models
             doc = db.query(models.Document).filter(models.Document.id == doc_id).first()
             if not doc:
-                raise FileNotFoundError("Document record not found")
+                raise FileNotFoundError("Không tìm thấy bản ghi tài liệu")
 
-            # Download file from MinIO to temp file
+            # Tải file từ MinIO về file tạm
             storage = S3Storage()
-            # s3_path stored as "bucket/object"
+            # s3_path thường có dạng "bucket/object"
             object_name = doc.s3_path.split('/', 1)[1] if '/' in doc.s3_path else doc.s3_path
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(doc.original_filename or '')[1] or '')
             tmp.close()
             storage.download_to_path(object_name, tmp.name)
 
-            # Extract text
-            if file_type == '.pdf' or file_type == 'pdf':
+            # Trích xuất văn bản tùy theo loại file
+            if file_type in ('.pdf', 'pdf'):
                 text, method = extract_text_with_fallback(tmp.name)
-            elif file_type == '.docx' or file_type == 'docx':
+            elif file_type in ('.docx', 'docx'):
                 text = extract_docx(tmp.name)
                 method = 'python-docx'
             else:
@@ -88,34 +88,34 @@ def process_document(self: Task, job_id: str, doc_id: str, file_type: str):
                     text = f.read()
                 method = 'direct'
 
-            # Preprocess -> tokens
+            # Tiền xử lý văn bản tiếng Việt
             from app.services.preprocessing.vietnamese_nlp import preprocess_vietnamese
             tokens = preprocess_vietnamese(text)
 
-            # Create shingles and MinHash
+            # Tạo shingles và MinHash signature
             shingles = create_shingles(tokens, k=7)
             if not shingles:
-                raise ValueError("No shingles generated")
+                raise ValueError("Không tạo được shingles")
 
             minhash = create_minhash_signature(shingles)
 
-            # Index signature to Redis LSH
+            # Lưu chữ ký vào Redis LSH
             similarity = SimilarityService()
             similarity.index_signature(str(doc.id), minhash)
 
-            # Query LSH for candidates
+            # Truy vấn LSH để tìm các tài liệu candidate
             candidates = similarity.query(minhash, top_k=10)
 
-            # Update document with extracted text and stats
+            # Cập nhật thông tin trích xuất cho Document
             word_count = len(tokens)
             page_count = None
             DocumentService.update_extracted_text(db, doc.id, text, word_count, page_count, method)
 
-            # Save check result
+            # Lưu kết quả kiểm tra
             overall_similarity = max([score for (_, score) in candidates], default=0.0)
             result_count = len(candidates)
 
-            # Update CheckResult record
+            # Cập nhật bản ghi CheckResult
             result = db.query(models.CheckResult).filter(models.CheckResult.id == job_id).first()
             if result:
                 result.overall_similarity = overall_similarity
@@ -125,80 +125,66 @@ def process_document(self: Task, job_id: str, doc_id: str, file_type: str):
                 db.add(result)
                 db.commit()
 
-            # Optionally store match_details
-            # TODO: expand to store detailed segments
+            # TODO: Lưu chi tiết match_details (các đoạn trùng khớp)
 
-            # Cleanup temp file
+            # Dọn dẹp file tạm
             try:
                 os.unlink(tmp.name)
             except Exception:
                 pass
 
-            logger.info(f"Job {job_id} completed successfully")
+            logger.info(f"Job {job_id} hoàn thành thành công")
 
             return {"job_id": job_id, "status": "done", "candidates": candidates}
         finally:
             db.close()
         
     except FileNotFoundError as e:
-        # Permanent error - file doesn't exist
-        logger.error(f"Job {job_id} failed: File not found")
-        # TODO: update_job_status(job_id, {
-        #     "status": "failed",
-        #     "error": "File not found",
-        #     "can_retry": False
-        # })
+        # Lỗi vĩnh viễn - không nên retry
+        logger.error(f"Job {job_id} thất bại: Không tìm thấy file")
+        # TODO: Cập nhật trạng thái failed, can_retry=False
         raise PermanentError(str(e))
         
     except TimeoutError as e:
-        # Transient error - might work on retry
-        logger.warning(f"Job {job_id} timeout, retrying...")
+        # Lỗi tạm thời - có thể retry
+        logger.warning(f"Job {job_id} timeout, đang thử lại...")
         retry_delay = RETRY_DELAYS[min(self.request.retries, len(RETRY_DELAYS) - 1)]
         
-        # TODO: update_job_status(job_id, {
-        #     "status": "retrying",
-        #     "retry_count": self.request.retries + 1,
-        #     "next_retry_at": (datetime.now() + timedelta(seconds=retry_delay)).isoformat()
-        # })
-        
+        # TODO: Cập nhật trạng thái retrying
         raise self.retry(exc=e, countdown=retry_delay)
         
     except Exception as e:
-        # Unknown error - retry once
-        logger.error(f"Job {job_id} error: {str(e)}")
+        # Lỗi không xác định - retry tối đa 1 lần
+        logger.error(f"Job {job_id} gặp lỗi: {str(e)}")
         
         if self.request.retries < 1:
             raise self.retry(exc=e, countdown=60)
         else:
-            # TODO: update_job_status(job_id, {
-            #     "status": "failed",
-            #     "error": str(e),
-            #     "can_retry": True
-            # })
+            # TODO: Cập nhật trạng thái failed
             raise
 
 
 @app.task
 def cleanup_old_jobs():
     """
-    Periodic task to cleanup old jobs
+    Task định kỳ dọn dẹp các job cũ
     
-    - Deletes jobs older than 30 days
-    - Removes temp files
+    - Xóa các job cũ hơn 30 ngày
+    - Xóa file tạm không còn sử dụng
     """
-    logger.info("Running cleanup task")
-    # TODO: Implement cleanup logic
+    logger.info("Đang chạy task dọn dẹp job cũ")
+    # TODO: Triển khai logic dọn dẹp
     pass
 
 
 @app.task
 def reset_daily_quotas():
     """
-    Periodic task to reset daily quotas
+    Task định kỳ reset hạn mức sử dụng hàng ngày
     
-    - Runs at midnight
-    - Resets daily_checks and daily_uploads for all users
+    - Chạy vào lúc nửa đêm
+    - Reset daily_checks và daily_uploads cho tất cả người dùng
     """
-    logger.info("Resetting daily quotas")
-    # TODO: Implement quota reset
+    logger.info("Đang reset hạn mức sử dụng hàng ngày")
+    # TODO: Triển khai logic reset quota
     pass

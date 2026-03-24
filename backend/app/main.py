@@ -1,5 +1,5 @@
 """
-FastAPI Application Entry Point
+Điểm vào (Entry Point) của ứng dụng FastAPI
 """
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -10,15 +10,20 @@ from app.db.database import init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application startup and shutdown events"""
-    # Startup: Create database tables
+    """
+    Xử lý sự kiện khởi động và tắt ứng dụng
+    
+    - Khởi động: Tạo các bảng trong database
+    - Tắt ứng dụng: Dọn dẹp nếu cần (hiện tại chưa có)
+    """
+    # Khởi động ứng dụng
     init_db()
     yield
-    # Shutdown: cleanup if needed
+    # Tắt ứng dụng - dọn dẹp nếu cần
     pass
 
 
-# Create FastAPI app
+# Tạo ứng dụng FastAPI
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
@@ -27,7 +32,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware - always allow localhost for development
+# CORS middleware - cho phép localhost trong quá trình phát triển
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -43,7 +48,7 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    """Health check endpoint"""
+    """Endpoint kiểm tra sức khỏe cơ bản (health check)"""
     return {
         "name": settings.APP_NAME,
         "version": settings.APP_VERSION,
@@ -53,15 +58,15 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Detailed health check"""
+    """Endpoint kiểm tra sức khỏe chi tiết"""
     return {
         "status": "healthy",
-        "database": "connected",  # TODO: actual DB check
-        "redis": "connected",      # TODO: actual Redis check
+        "database": "connected",   # TODO: Thực hiện kiểm tra kết nối DB thật
+        "redis": "connected",      # TODO: Thực hiện kiểm tra kết nối Redis thật
     }
 
 
-# Include API routers
+# Đăng ký các router API
 from app.api.routes import auth, check, plagiarism
 
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)

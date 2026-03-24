@@ -1,7 +1,7 @@
 -- migrations/001_initial_schema.sql
--- PlagiarismGuard 2.0 Initial Database Schema
+-- PlagiarismGuard 2.0 - Script tạo cấu trúc cơ sở dữ liệu ban đầu
 
--- Users table
+-- Bảng người dùng
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Documents table
+-- Bảng tài liệu (bao gồm cả tài liệu người dùng upload và tài liệu corpus)
 CREATE TABLE documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -33,7 +33,7 @@ CREATE TABLE documents (
     indexed_at TIMESTAMP
 );
 
--- Check results table
+-- Bảng kết quả kiểm tra đạo văn
 CREATE TABLE check_results (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -48,27 +48,29 @@ CREATE TABLE check_results (
     completed_at TIMESTAMP
 );
 
--- Match details table
+-- Bảng chi tiết các đoạn khớp (match details)
 CREATE TABLE match_details (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     result_id UUID REFERENCES check_results(id) ON DELETE CASCADE,
     source_doc_id UUID REFERENCES documents(id) ON DELETE SET NULL,
     similarity_score DECIMAL(5,4),
-    matched_segments JSONB,
+    matched_segments JSONB,           -- Lưu mảng các đoạn văn bản trùng khớp
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for performance
+-- Các index hỗ trợ truy vấn nhanh
 CREATE INDEX idx_documents_owner ON documents(owner_id);
 CREATE INDEX idx_documents_hash ON documents(file_hash_sha256);
 CREATE INDEX idx_documents_status ON documents(status);
 CREATE INDEX idx_documents_created ON documents(created_at);
+
 CREATE INDEX idx_results_user ON check_results(user_id);
 CREATE INDEX idx_results_status ON check_results(status);
 CREATE INDEX idx_results_created ON check_results(created_at);
+
 CREATE INDEX idx_match_result ON match_details(result_id);
 
--- Function to update updated_at
+-- Function tự động cập nhật cột updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -77,13 +79,14 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Trigger for users table
+-- Trigger cập nhật updated_at cho bảng users
 CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Insert default admin user (password: admin123 - CHANGE IN PRODUCTION!)
--- Password hash generated with bcrypt
+-- Thêm tài khoản admin mặc định (mật khẩu: admin123)
+-- LƯU Ý: Hãy thay đổi mật khẩu này ngay trong môi trường production!
+-- Password hash được tạo bằng bcrypt
 INSERT INTO users (email, password_hash, tier) VALUES 
 ('admin@plagiarismguard.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzpLaEm8u6', 'admin');

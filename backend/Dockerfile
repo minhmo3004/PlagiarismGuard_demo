@@ -1,10 +1,11 @@
-# Backend Dockerfile for PlagiarismGuard
+# Dockerfile cho Backend PlagiarismGuard
+
 FROM python:3.11-slim
 
-# Set working directory
+# Thiết lập thư mục làm việc
 WORKDIR /app
 
-# Install system dependencies
+# Cài đặt các dependencies hệ thống
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
@@ -16,29 +17,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for cache
+# Copy file requirements trước để tận dụng cache layer của Docker
 COPY requirements.txt .
 
-# Install Python dependencies
+# Cài đặt các package Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy toàn bộ mã nguồn ứng dụng
 COPY . .
 
-# Create uploads directory
+# Tạo thư mục uploads
 RUN mkdir -p /app/uploads
 
-# Set environment variables
+# Thiết lập biến môi trường
 ENV PYTHONPATH=/app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Expose port
+# Mở port 8000
 EXPOSE 8000
 
-# Health check
+# Health check cho container
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
+# Lệnh chạy ứng dụng
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
