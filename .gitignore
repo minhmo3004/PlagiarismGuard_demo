@@ -70,3 +70,4 @@ frontend/out/
 # Uploads
 uploads/
 temp/
+.agent
