@@ -1,6 +1,6 @@
 """
-Các dependency cho API
-Cung cấp các dependency có thể tái sử dụng cho các route
+API dependencies
+Provides reusable dependencies for routes
 """
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -9,7 +9,11 @@ from app.core.security import decode_token
 from app.models.user import User
 from typing import Optional
 
-# Scheme xác thực HTTP Bearer token
+from app.db.database import SessionLocal
+from app.db import models as db_models
+import uuid as uuid_module
+
+# HTTP Bearer token scheme
 security = HTTPBearer()
 
 
@@ -17,22 +21,13 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> User:
     """
-    Lấy thông tin người dùng hiện tại từ JWT token
-    
-    Args:
-        credentials: Thông tin xác thực Bearer
-    
-    Returns:
-        Đối tượng User
-    
-    Raises:
-        HTTPException: Nếu token không hợp lệ hoặc không tìm thấy người dùng
+    Get current authenticated user from JWT token (Database-backed)
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail={
             "code": "INVALID_TOKEN",
-            "message": "Không thể xác thực thông tin đăng nhập"
+            "message": "Could not validate credentials"
         },
         headers={"WWW-Authenticate": "Bearer"},
     )
@@ -40,67 +35,56 @@ async def get_current_user(
     try:
         token = credentials.credentials
         payload = decode_token(token)
-        user_id: str = payload.get("sub")
+        user_id_str: str = payload.get("sub")
         token_type: str = payload.get("type")
         
-        if user_id is None or token_type != "access":
+        if user_id_str is None or token_type != "access":
             raise credentials_exception
             
     except JWTError:
         raise credentials_exception
     
-    # TODO: Lấy thông tin người dùng từ cơ sở dữ liệu
-    # user = await get_user_by_id(user_id)
-    # if user is None:
-    #     raise credentials_exception
-    
-    # Tạm thời trả về user giả lập (mock)
-    # Sau này sẽ thay bằng truy vấn database thực tế
-    return User(
-        id=user_id,
-        email="user@example.com",
-        tier="free",
-        daily_uploads=0,
-        daily_checks=0,
-        created_at=None
-    )
+    # Get user from database
+    db = SessionLocal()
+    try:
+        try:
+            user_uuid = uuid_module.UUID(user_id_str)
+        except ValueError:
+            raise credentials_exception
+            
+        db_user = db.query(db_models.User).filter(db_models.User.id == user_uuid).first()
+        if db_user is None:
+            raise credentials_exception
+        
+        # Convert SQLAlchemy model to Pydantic model
+        return User.from_orm(db_user)
+    finally:
+        db.close()
 
 
 async def get_current_active_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """
-    Lấy người dùng hiện tại đang hoạt động (có thể thêm kiểm tra bổ sung ở đây)
-    
-    Args:
-        current_user: Người dùng hiện tại từ get_current_user
-    
-    Returns:
-        Đối tượng User nếu đang hoạt động
+    Get current active user
     """
-    # Có thể thêm kiểm tra bổ sung nếu cần (ví dụ: cờ is_active)
     return current_user
 
 
 async def check_user_quota(user: User) -> bool:
     """
-    Kiểm tra xem người dùng còn hạn mức (quota) sử dụng trong ngày hay không
-    
-    Args:
-        user: Đối tượng User
-    
-    Returns:
-        True nếu còn hạn mức, False nếu đã hết
+    Check if user has remaining quota for today (Live DB check)
     """
-    # TODO: Triển khai kiểm tra quota thực tế từ database
-    # Hiện tại chỉ kiểm tra đơn giản dựa trên tier
-    
+    # Define limits by tier
     quota_limits = {
         "free": 10,
         "premium": 100,
         "enterprise": 1000,
-        "admin": float('inf')
+        "admin": 999999
     }
     
-    limit = quota_limits.get(user.tier, 10)
+    # In a production environment, we would check if the quota 
+    # needs to be reset based on last_reset_date.
+    # For now, we trust the daily_checks count in the User object.
+    limit = quota_limits.get(user.tier, 5) # Default to 5 if unknown tier
     return user.daily_checks < limit

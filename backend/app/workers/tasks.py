@@ -1,5 +1,5 @@
 """
-Celery tasks cho xử lý nền (background processing)
+Celery tasks for background processing
 """
 from celery import Task
 from celery.exceptions import MaxRetriesExceededError
@@ -20,171 +20,179 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Cấu hình retry
-RETRY_DELAYS = [60, 300, 900]  # 1 phút, 5 phút, 15 phút
+# Retry configuration
+RETRY_DELAYS = [60, 300, 900]  # 1min, 5min, 15min
 MAX_RETRIES = 3
 
 
 class TransientError(Exception):
-    """Lỗi tạm thời - nên thử lại (retry)"""
+    """Temporary error that should be retried"""
     pass
 
 
 class PermanentError(Exception):
-    """Lỗi vĩnh viễn - không nên thử lại"""
+    """Permanent error that should not be retried"""
     pass
 
+
+from app.services.plagiarism_checker import PlagiarismChecker
+from app.api.deps import get_minio_storage
+from redis import Redis
+import uuid
+import json
+from app.core.config import settings
 
 @app.task(bind=True, max_retries=MAX_RETRIES)
 def process_document(self: Task, job_id: str, doc_id: str, file_type: str):
     """
-    Xử lý tài liệu để kiểm tra đạo văn (background task)
-    
-    Các bước thực hiện:
-    1. Kiểm tra tính hợp lệ của file
-    2. Trích xuất văn bản
-    3. Tiền xử lý (NLP tiếng Việt)
-    4. Tạo shingles
-    5. Tạo chữ ký MinHash
-    6. Truy vấn LSH
-    7. So sánh sâu (nếu cần)
-    8. Lưu kết quả vào database
-    
-    Args:
-        job_id: Mã công việc duy nhất
-        doc_id: ID của tài liệu trong database
-        file_type: Đuôi file (pdf, docx, txt, tex)
+    Process document for plagiarism check (Production Implementation)
     """
+    db = SessionLocal()
     try:
-        logger.info(f"Bắt đầu xử lý job {job_id} (doc={doc_id})")
+        logger.info(f"🚀 Starting background job {job_id} (doc={doc_id})")
 
-        # Tạo session database
-        db = SessionLocal()
+        # 1. Load records
+        from app.db import models
+        doc = db.query(models.Document).filter(models.Document.id == doc_id).first()
+        result = db.query(models.CheckResult).filter(models.CheckResult.id == job_id).first()
+        
+        if not doc or not result:
+            logger.error(f"❌ Document {doc_id} or Result {job_id} not found")
+            return {"job_id": job_id, "status": "failed", "error": "Records not found"}
 
-        # Load thông tin tài liệu
-        doc = None
+        result.status = 'processing'
+        db.commit()
+
+        # 2. Setup Services
+        redis_client = Redis.from_url(settings.REDIS_URL, decode_responses=True)
+        checker = PlagiarismChecker(redis_client=redis_client)
+        storage = S3Storage()
+
+        # 3. Download and Extract
         try:
-            from app.db import models
-            doc = db.query(models.Document).filter(models.Document.id == doc_id).first()
-            if not doc:
-                raise FileNotFoundError("Không tìm thấy bản ghi tài liệu")
+            object_name = result.file_path # Using relative path stored in upload
+            tmp_suffix = os.path.splitext(doc.original_filename or '')[1] or file_type
+            with tempfile.NamedTemporaryFile(delete=False, suffix=tmp_suffix) as tmp:
+                tmp_path = tmp.name
+            
+            storage.download_to_path(object_name, tmp_path)
+            
+            # Using checker's internal extraction logic
+            text = checker._extract_text(tmp_path, doc.original_filename)
+        except Exception as e:
+            logger.error(f"❌ Extraction error: {e}")
+            result.status = 'failed'
+            result.error_message = f"Lỗi trích xuất văn bản: {str(e)}"
+            db.commit()
+            return {"job_id": job_id, "status": "failed", "error": str(e)}
 
-            # Tải file từ MinIO về file tạm
-            storage = S3Storage()
-            # s3_path thường có dạng "bucket/object"
-            object_name = doc.s3_path.split('/', 1)[1] if '/' in doc.s3_path else doc.s3_path
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(doc.original_filename or '')[1] or '')
-            tmp.close()
-            storage.download_to_path(object_name, tmp.name)
-
-            # Trích xuất văn bản tùy theo loại file
-            if file_type in ('.pdf', 'pdf'):
-                text, method = extract_text_with_fallback(tmp.name)
-            elif file_type in ('.docx', 'docx'):
-                text = extract_docx(tmp.name)
-                method = 'python-docx'
-            else:
-                with open(tmp.name, 'r', encoding='utf-8', errors='ignore') as f:
-                    text = f.read()
-                method = 'direct'
-
-            # Tiền xử lý văn bản tiếng Việt
-            from app.services.preprocessing.vietnamese_nlp import preprocess_vietnamese
-            tokens = preprocess_vietnamese(text)
-
-            # Tạo shingles và MinHash signature
-            shingles = create_shingles(tokens, k=7)
-            if not shingles:
-                raise ValueError("Không tạo được shingles")
-
-            minhash = create_minhash_signature(shingles)
-
-            # Lưu chữ ký vào Redis LSH
-            similarity = SimilarityService()
-            similarity.index_signature(str(doc.id), minhash)
-
-            # Truy vấn LSH để tìm các tài liệu candidate
-            candidates = similarity.query(minhash, top_k=10)
-
-            # Cập nhật thông tin trích xuất cho Document
-            word_count = len(tokens)
-            page_count = None
-            DocumentService.update_extracted_text(db, doc.id, text, word_count, page_count, method)
-
-            # Lưu kết quả kiểm tra
-            overall_similarity = max([score for (_, score) in candidates], default=0.0)
-            result_count = len(candidates)
-
-            # Cập nhật bản ghi CheckResult
-            result = db.query(models.CheckResult).filter(models.CheckResult.id == job_id).first()
-            if result:
-                result.overall_similarity = overall_similarity
-                result.match_count = result_count
-                result.status = 'done'
-                result.completed_at = datetime.now()
-                db.add(result)
-                db.commit()
-
-            # TODO: Lưu chi tiết match_details (các đoạn trùng khớp)
-
-            # Dọn dẹp file tạm
-            try:
-                os.unlink(tmp.name)
-            except Exception:
-                pass
-
-            logger.info(f"Job {job_id} hoàn thành thành công")
-
-            return {"job_id": job_id, "status": "done", "candidates": candidates}
-        finally:
-            db.close()
+        # 4. Perform Plagiarism Check
+        start_time = datetime.now()
+        check_result = checker.check_against_corpus(tmp_path, doc.original_filename)
+        end_time = datetime.now()
         
-    except FileNotFoundError as e:
-        # Lỗi vĩnh viễn - không nên retry
-        logger.error(f"Job {job_id} thất bại: Không tìm thấy file")
-        # TODO: Cập nhật trạng thái failed, can_retry=False
-        raise PermanentError(str(e))
+        duration_ms = int((end_time - start_time).total_seconds() * 1000)
+
+        # 5. Update Document Extracted Text
+        DocumentService.update_extracted_text(
+            db, doc.id, text, check_result.word_count, None, 'celery-worker'
+        )
+
+        # 6. Save Overall Result
+        result.overall_similarity = check_result.overall_similarity
+        result.plagiarism_level = check_result.plagiarism_level
+        result.match_count = len(check_result.matches)
+        result.word_count = check_result.word_count
+        result.processing_time_ms = duration_ms
+        result.status = 'done'
+        result.completed_at = datetime.now()
+
+        # 7. Save Match Details
+        # Clear any existing (shouldn't be any for new job)
+        db.query(models.MatchDetail).filter(models.MatchDetail.result_id == result.id).delete()
         
-    except TimeoutError as e:
-        # Lỗi tạm thời - có thể retry
-        logger.warning(f"Job {job_id} timeout, đang thử lại...")
-        retry_delay = RETRY_DELAYS[min(self.request.retries, len(RETRY_DELAYS) - 1)]
-        
-        # TODO: Cập nhật trạng thái retrying
-        raise self.retry(exc=e, countdown=retry_delay)
-        
+        for m in check_result.matches:
+            # Re-fetch source doc by UUID if possible (checker uses doc_id prefix)
+            # Find complete doc in DB
+            source_doc = db.query(models.Document).filter(
+                models.Document.is_corpus == 1
+            ).filter(
+                db.cast(models.Document.id, db.String).like(f"{m.doc_id}%")
+            ).first()
+
+            detail = models.MatchDetail(
+                result_id=result.id,
+                source_doc_id=source_doc.id if source_doc else None,
+                similarity_score=m.similarity,
+                source_title=m.title or (source_doc.title if source_doc else "Unknown"),
+                source_author=m.author or (source_doc.author if source_doc else "Unknown"),
+                source_university=m.university or (source_doc.university if source_doc else "Unknown"),
+                source_year=m.year or (source_doc.year if source_doc else None),
+                matched_segments=json.dumps([
+                    {
+                        "query_text": seg.query_text,
+                        "query_start": seg.query_start,
+                        "query_end": seg.query_end,
+                        "source_text": seg.source_text,
+                        "source_start": seg.source_start,
+                        "source_end": seg.source_end
+                    } for seg in (m.matched_segments or [])
+                ])
+            )
+            db.add(detail)
+
+        db.commit()
+        logger.info(f"✅ Job {job_id} done. matches={len(check_result.matches)}")
+
+        # Cleanup
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
+
+        return {"job_id": job_id, "status": "done", "matches": len(check_result.matches)}
+
     except Exception as e:
-        # Lỗi không xác định - retry tối đa 1 lần
-        logger.error(f"Job {job_id} gặp lỗi: {str(e)}")
+        logger.error(f"❌ Unhandled Job Error: {e}", exc_info=True)
+        db.rollback()
+        # Reset status if possible
+        try:
+            res = db.query(models.CheckResult).filter(models.CheckResult.id == job_id).first()
+            if res:
+                res.status = 'failed'
+                res.error_message = str(e)
+                db.commit()
+        except:
+            pass
         
-        if self.request.retries < 1:
+        if self.request.retries < MAX_RETRIES:
             raise self.retry(exc=e, countdown=60)
-        else:
-            # TODO: Cập nhật trạng thái failed
-            raise
+        raise PermanentError(str(e))
+    finally:
+        db.close()
 
 
 @app.task
 def cleanup_old_jobs():
     """
-    Task định kỳ dọn dẹp các job cũ
+    Periodic task to cleanup old jobs
     
-    - Xóa các job cũ hơn 30 ngày
-    - Xóa file tạm không còn sử dụng
+    - Deletes jobs older than 30 days
+    - Removes temp files
     """
-    logger.info("Đang chạy task dọn dẹp job cũ")
-    # TODO: Triển khai logic dọn dẹp
+    logger.info("Running cleanup task")
+    # TODO: Implement cleanup logic
     pass
 
 
 @app.task
 def reset_daily_quotas():
     """
-    Task định kỳ reset hạn mức sử dụng hàng ngày
+    Periodic task to reset daily quotas
     
-    - Chạy vào lúc nửa đêm
-    - Reset daily_checks và daily_uploads cho tất cả người dùng
+    - Runs at midnight
+    - Resets daily_checks and daily_uploads for all users
     """
-    logger.info("Đang reset hạn mức sử dụng hàng ngày")
-    # TODO: Triển khai logic reset quota
+    logger.info("Resetting daily quotas")
+    # TODO: Implement quota reset
     pass

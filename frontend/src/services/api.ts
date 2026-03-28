@@ -91,7 +91,7 @@ export interface PlagiarismCheckResult {
   plagiarism_level: 'none' | 'low' | 'medium' | 'high';
   word_count: number;
   processing_time_ms: number;
-  corpus_size: number;
+  corpus_size?: number;
   matches: Array<{
     title: string;
     author: string;
@@ -107,10 +107,25 @@ export interface PlagiarismCheckResult {
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Upload file và kiểm tra đạo văn trực tiếp (endpoint /plagiarism/check)
- * - Sử dụng FormData để gửi file
- * - Lưu kết quả vào localStorage để trang result đọc
- * - Trả về object giả lập UploadResponse (vì endpoint này không trả job_id thật)
+ * Upload file và kiểm tra đạo văn theo quy trình PRO (Asynchronous /check)
+ * - Trả về job_id để frontend tiến hành polling trạng thái
+ */
+export const uploadDocumentPro = async (file: File): Promise<UploadResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await apiClient.post<UploadResponse>('/check/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
+  return response.data;
+};
+
+/**
+ * Upload file và kiểm tra đạo văn trực tiếp (Legacy Synchronous /plagiarism/check)
+ * - Dùng cho demo nhanh, trả về kết quả ngay lập tức
  */
 export const uploadDocument = async (file: File): Promise<UploadResponse> => {
   const formData = new FormData();
@@ -122,20 +137,19 @@ export const uploadDocument = async (file: File): Promise<UploadResponse> => {
     },
   });
 
-  // Lưu kết quả vào localStorage để trang /result đọc
+  // Lưu kết quả vào localStorage để trang /result đọc (Demo flow)
   localStorage.setItem('plagiarism_result', JSON.stringify(response.data));
 
   return {
     job_id: 'direct-check-' + Date.now(),
     message: response.data.is_plagiarized
       ? `Phát hiện đạo văn ${response.data.overall_similarity}%`
-      : 'Kiểm tra hoàn tất',
+      : 'Kiểm tra hoàn tất (Demo)',
   };
 };
 
 /**
- * Lấy kết quả kiểm tra đạo văn từ localStorage
- * (dùng cho trường hợp kiểm tra trực tiếp không qua job polling)
+ * Lấy kết quả kiểm tra đạo văn từ localStorage (Dành cho Demo flow)
  */
 export const getPlagiarismResult = (): PlagiarismCheckResult | null => {
   const result = localStorage.getItem('plagiarism_result');
@@ -143,23 +157,36 @@ export const getPlagiarismResult = (): PlagiarismCheckResult | null => {
 };
 
 /**
- * Lấy trạng thái tiến trình của một job (dùng cho polling)
+ * Poll trạng thái của job (Dành cho Pro flow /check)
  */
 export const getJobStatus = async (jobId: string): Promise<JobStatusResponse> => {
-  const response = await apiClient.get<JobStatusResponse>(`/jobs/${jobId}/status`);
+  const response = await apiClient.get<JobStatusResponse>(`/check/status/${jobId}`);
   return response.data;
 };
 
 /**
- * Lấy chi tiết kết quả so sánh của một query cụ thể
+ * Lấy chi tiết kết quả khi job đã hoàn thành (Dành cho Pro flow /check)
  */
-export const getComparisonResult = async (queryId: string): Promise<ComparisonResult> => {
-  const response = await apiClient.get<ComparisonResult>(`/comparisons/${queryId}`);
+export const getCheckResult = async (jobId: string): Promise<PlagiarismCheckResult> => {
+  const response = await apiClient.get<PlagiarismCheckResult>(`/check/result/${jobId}`);
   return response.data;
 };
 
 /**
- * Lấy danh sách lịch sử kiểm tra (có phân trang)
+ * Lấy danh sách lịch sử kiểm tra (Pro History)
+ */
+export const getCheckHistory = async (
+  offset: number = 0,
+  limit: number = 20
+): Promise<JobStatusResponse[]> => {
+  const response = await apiClient.get<JobStatusResponse[]>('/check/history', {
+    params: { offset, limit },
+  });
+  return response.data;
+};
+
+/**
+ * Lấy danh sách lịch sử kiểm tra (Legacy/Demo History)
  */
 export const getComparisonHistory = async (
   page: number = 1,

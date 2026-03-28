@@ -1,6 +1,6 @@
 """
-Các route kiểm tra đạo văn
-Tải lên, trạng thái, kết quả, hủy, thử lại, lịch sử
+Plagiarism check routes
+Upload, status, result, cancel, retry, history
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from app.api.schemas import CheckUploadResponse, JobStatus, CheckResult
@@ -12,12 +12,12 @@ from datetime import datetime
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from app.db import models
+from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
-from app.services.storage import S3Storage
-from app.services.document_service import DocumentService
-from app.workers.tasks import process_document
+import json
 
-router = APIRouter(prefix="/check", tags=["Kiểm tra đạo văn"])
+router = APIRouter(prefix="/check", tags=["Plagiarism Check Pro"])
 
 
 @router.post("/upload", response_model=CheckUploadResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -26,14 +26,9 @@ async def upload_document(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Tải lên tài liệu và bắt đầu kiểm tra đạo văn
-    
-    - Kiểm tra định dạng và kích thước file
-    - Kiểm tra hạn mức (quota) của người dùng
-    - Đưa công việc vào hàng đợi xử lý nền
-    - Trả về job_id để theo dõi trạng thái
+    Upload document and start plagiarism check (Asynchronous Pro Flow)
     """
-    # Kiểm tra hạn mức sử dụng
+    # Check quota
     if not await check_user_quota(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -43,7 +38,7 @@ async def upload_document(
             }
         )
     
-    # Kiểm tra định dạng file
+    # Validate file format
     allowed_extensions = [".pdf", ".docx", ".txt", ".tex"]
     file_ext = "." + file.filename.split(".")[-1].lower()
     
@@ -56,92 +51,94 @@ async def upload_document(
             }
         )
     
-    # Kiểm tra kích thước file (tối đa 20MB)
-    # TODO: Đọc kích thước file từ upload
-    # if file.size > 20 * 1024 * 1024:
-    #     raise HTTPException(413, detail={"code": "FILE_TOO_LARGE"})
-    
-    # Tạo ID cho job
+    # Generate job ID
     job_id = str(uuid.uuid4())
 
-    # Đọc nội dung file
+    # Read binary content
     content = await file.read()
-
-    # Tính hash SHA256
     file_hash = DocumentService.compute_sha256(content)
 
-    # Upload lên MinIO
+    # Upload to MinIO via consolidated storage
     storage = S3Storage()
     object_name = f"uploads/{job_id}_{file.filename}"
     s3_path = storage.upload_bytes(content, object_name)
 
-    # Lưu metadata tài liệu vào PostgreSQL
+    # Save to DB
     db: Session = SessionLocal()
     try:
         doc = DocumentService.create_document(
             db,
-            owner_id=current_user.id if hasattr(current_user, 'id') else None,
+            owner_id=current_user.id,
             original_filename=file.filename,
             s3_path=s3_path,
             file_hash=file_hash,
             file_size=len(content)
         )
 
-        # Tạo bản ghi công việc kiểm tra trong DB (dùng job_id làm CheckResult.id)
-        from app.db import models
+        # Create check job record
         result = models.CheckResult(
-            id=job_id,
-            user_id=current_user.id if hasattr(current_user, 'id') else None,
+            id=uuid.UUID(job_id),
+            user_id=current_user.id,
             query_doc_id=doc.id,
             query_filename=file.filename,
-            status='pending'
+            status='pending',
+            file_path=object_name # Store relative path for MinIO
         )
         db.add(result)
+        
+        # Increment user usage count
+        db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
+        if db_user:
+            db_user.daily_checks += 1
+            
         db.commit()
 
+        # Queue Celery task
+        try:
+            process_document.delay(job_id, str(doc.id), file_ext)
+        except Exception as e:
+            # If Celery isn't running, we at least have the record in DB
+            print(f"⚠️ Celery Error: {e}")
+
+        return CheckUploadResponse(
+            job_id=job_id,
+            status="pending",
+            message="File đã được tải lên và đang được xử lý trong hàng đợi"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, detail=str(e))
     finally:
         db.close()
 
-    # Đưa vào hàng đợi xử lý nền bằng Celery
-    try:
-        process_document.delay(job_id, str(doc.id), file_ext)
-    except Exception:
-        # Nếu Celery chưa được cấu hình, bỏ qua và để trạng thái pending
-        pass
 
-    return CheckUploadResponse(
-        job_id=job_id,
-        status="pending",
-        message="File đã được tải lên và đang chờ xử lý"
-    )
-
-
-@router.get("/status/{job_id}", response_model=JobStatus)
+@router.get("/status/{job_id}")
 async def get_job_status(
     job_id: str,
     current_user: User = Depends(get_current_user)
 ):
     """
-    Lấy trạng thái công việc (dùng để polling)
-    
-    - Trả về trạng thái hiện tại (pending, processing, done, failed)
-    - Bao gồm phần trăm tiến độ nếu đang xử lý
-    - Bao gồm thông báo lỗi nếu thất bại
+    Get job status for polling
     """
-    # TODO: Lấy thông tin job từ database
-    # job = await get_job(job_id)
-    # if not job:
-    #     raise HTTPException(404, detail={"code": "JOB_NOT_FOUND"})
-    # if job.user_id != current_user.id:
-    #     raise HTTPException(403, detail={"code": "FORBIDDEN"})
-    
-    # Mock response
-    return JobStatus(
-        job_id=job_id,
-        status="processing",
-        progress=45,
-        created_at=datetime.now()
-    )
+    db = SessionLocal()
+    try:
+        job = db.query(models.CheckResult).filter(
+            models.CheckResult.id == uuid.UUID(job_id),
+            models.CheckResult.user_id == current_user.id
+        ).first()
+        
+        if not job:
+            raise HTTPException(404, detail="Job not found")
+            
+        return {
+            "job_id": job_id,
+            "status": job.status,
+            "overall_similarity": float(job.overall_similarity or 0),
+            "created_at": job.created_at,
+            "completed_at": job.completed_at
+        }
+    finally:
+        db.close()
 
 
 @router.get("/result/{job_id}", response_model=CheckResult)
@@ -150,129 +147,49 @@ async def get_check_result(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Lấy kết quả kiểm tra chi tiết
-    
-    - Chỉ khả dụng khi status = 'done'
-    - Trả về điểm tương đồng và các đoạn khớp
+    Get detailed check result (when status = 'done')
     """
-    # TODO: Lấy job và kết quả từ database
-    # job = await get_job(job_id)
-    # if not job:
-    #     raise HTTPException(404, detail={"code": "JOB_NOT_FOUND"})
-    # if job.user_id != current_user.id:
-    #     raise HTTPException(403, detail={"code": "FORBIDDEN"})
-    # if job.status != "done":
-    #     raise HTTPException(400, detail={"code": "RESULT_NOT_READY"})
-    
-    # Mock response
-    return CheckResult(
-        job_id=job_id,
-        status="done",
-        query_filename="thesis.pdf",
-        overall_similarity=0.42,
-        match_count=3,
-        matches=[],
-        processing_time_ms=1250,
-        created_at=datetime.now(),
-        completed_at=datetime.now()
-    )
-
-
-@router.post("/{job_id}/cancel", status_code=status.HTTP_200_OK)
-async def cancel_job(
-    job_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Hủy công việc đang chờ hoặc đang xử lý
-    
-    - Thu hồi task Celery
-    - Cập nhật trạng thái thành 'cancelled'
-    - Dọn dẹp file tạm
-    """
-    # TODO: Lấy job từ database
-    # job = await get_job(job_id)
-    # if not job:
-    #     raise HTTPException(404, detail={"code": "JOB_NOT_FOUND"})
-    # if job.user_id != current_user.id:
-    #     raise HTTPException(403, detail={"code": "FORBIDDEN"})
-    # if job.status not in ["pending", "processing"]:
-    #     raise HTTPException(400, detail={"code": "INVALID_JOB_STATUS"})
-    
-    # TODO: Thu hồi task Celery
-    # from app.workers.celery_app import app
-    # app.control.revoke(job.celery_task_id, terminate=True)
-    
-    # TODO: Cập nhật trạng thái
-    # await update_job_status(job_id, {"status": "cancelled"})
-    
-    return {"status": "cancelled", "job_id": job_id}
-
-
-@router.post("/{job_id}/retry", response_model=CheckUploadResponse)
-async def retry_failed_job(
-    job_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Thử lại công việc đã thất bại
-    
-    - Chỉ áp dụng cho job có status = 'failed' và can_retry = True
-    - Kiểm tra lại quota
-    - Đưa lại job vào hàng đợi
-    """
-    # TODO: Lấy job từ database
-    # job = await get_job(job_id)
-    # if not job:
-    #     raise HTTPException(404, detail={"code": "JOB_NOT_FOUND"})
-    # if job.user_id != current_user.id:
-    #     raise HTTPException(403, detail={"code": "FORBIDDEN"})
-    # if job.status != "failed":
-    #     raise HTTPException(400, detail={"code": "INVALID_JOB_STATUS"})
-    # if not job.can_retry:
-    #     raise HTTPException(400, detail={"code": "CANNOT_RETRY"})
-    
-    # Kiểm tra quota
-    if not await check_user_quota(current_user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={"code": "QUOTA_EXCEEDED"}
+    db = SessionLocal()
+    try:
+        job = db.query(models.CheckResult).filter(
+            models.CheckResult.id == uuid.UUID(job_id),
+            models.CheckResult.user_id == current_user.id
+        ).first()
+        
+        if not job:
+            raise HTTPException(404, detail="Job not found")
+            
+        if job.status != "done":
+            raise HTTPException(400, detail="Result not ready or job failed")
+        
+        # Format matches from match_details table
+        matches = []
+        details = db.query(models.MatchDetail).filter(models.MatchDetail.result_id == job.id).all()
+        
+        for detail in details:
+            matches.append({
+                "doc_id": str(detail.source_doc_id),
+                "title": detail.source_title,
+                "author": detail.source_author,
+                "university": detail.source_university,
+                "year": detail.source_year,
+                "similarity": float(detail.similarity_score),
+                "matched_segments": json.loads(detail.matched_segments) if detail.matched_segments else []
+            })
+            
+        return CheckResult(
+            job_id=job_id,
+            status=job.status,
+            query_filename=job.query_filename,
+            overall_similarity=float(job.overall_similarity or 0),
+            match_count=job.match_count,
+            matches=matches,
+            processing_time_ms=job.processing_time_ms or 0,
+            created_at=job.created_at,
+            completed_at=job.completed_at
         )
-    
-    # TODO: Reset trạng thái job và đưa lại vào hàng đợi
-    # await update_job_status(job_id, {"status": "pending", "retry_count": 0})
-    # process_document.delay(job_id, job.file_path)
-    
-    return CheckUploadResponse(
-        job_id=job_id,
-        status="pending",
-        message="Job đã được đưa vào hàng đợi lại"
-    )
-
-
-@router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_job(
-    job_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Xóa công việc và kết quả liên quan
-    
-    - Xóa bản ghi công việc
-    - Dọn dẹp các file liên quan
-    """
-    # TODO: Lấy job và xóa
-    # job = await get_job(job_id)
-    # if not job:
-    #     raise HTTPException(404, detail={"code": "JOB_NOT_FOUND"})
-    # if job.user_id != current_user.id:
-    #     raise HTTPException(403, detail={"code": "FORBIDDEN"})
-    
-    # TODO: Xóa bản ghi và dọn dẹp file
-    # await delete_job_record(job_id)
-    # await cleanup_job_files(job_id)
-    
-    return None
+    finally:
+        db.close()
 
 
 @router.get("/history", response_model=List[JobStatus])
@@ -282,13 +199,20 @@ async def get_check_history(
     offset: int = Query(0, ge=0)
 ):
     """
-    Lấy lịch sử kiểm tra của người dùng
-    
-    - Trả về danh sách các công việc
-    - Hỗ trợ phân trang (limit, offset)
+    Get user's check history from database
     """
-    # TODO: Lấy danh sách job từ database
-    # jobs = await get_user_jobs(current_user.id, limit=limit, offset=offset)
-    
-    # Mock response
-    return []
+    db = SessionLocal()
+    try:
+        jobs = db.query(models.CheckResult).filter(
+            models.CheckResult.user_id == current_user.id
+        ).order_by(models.CheckResult.created_at.desc()).offset(offset).limit(limit).all()
+        
+        return [
+            JobStatus(
+                job_id=str(job.id),
+                status=job.status,
+                created_at=job.created_at
+            ) for job in jobs
+        ]
+    finally:
+        db.close()
