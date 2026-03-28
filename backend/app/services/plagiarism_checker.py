@@ -1,10 +1,10 @@
 """
-Dịch vụ kiểm tra đạo văn (Plagiarism Checker Service)
-Kết nối tất cả các module để thực hiện kiểm tra đạo văn
+Plagiarism Checker Service
+Kết nối tất cả modules để check đạo văn
 
-Gồm 2 chức năng chính:
-1. compare_two_files: So sánh hai tệp với nhau
-2. check_against_corpus: So sánh một tệp với tập dữ liệu (corpus)
+2 Features:
+1. compare_two_files: So sánh 2 files với nhau
+2. check_against_corpus: Check 1 file với corpus
 """
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
@@ -27,7 +27,7 @@ from app.db.models import Document
 
 @dataclass
 class ComparisonResult:
-    """Kết quả so sánh hai tệp"""
+    """Kết quả so sánh 2 files"""
     similarity: float
     is_similar: bool
     file1_word_count: int
@@ -37,7 +37,7 @@ class ComparisonResult:
 
 @dataclass
 class MatchedSegment:
-    """Một đoạn văn bản trùng khớp"""
+    """Một đoạn text trùng khớp cụ thể"""
     query_text: str
     query_start: int
     query_end: int
@@ -48,7 +48,7 @@ class MatchedSegment:
 
 @dataclass
 class CorpusMatch:
-    """Một tài liệu trong corpus có độ tương đồng"""
+    """Một document match từ corpus với chi tiết các đoạn trùng khớp"""
     doc_id: str
     title: str
     author: str
@@ -60,7 +60,7 @@ class CorpusMatch:
 
 @dataclass  
 class PlagiarismResult:
-    """Kết quả kiểm tra đạo văn với corpus"""
+    """Kết quả check đạo văn với corpus"""
     is_plagiarized: bool
     overall_similarity: float
     plagiarism_level: str  # "none", "low", "medium", "high"
@@ -70,23 +70,22 @@ class PlagiarismResult:
 
 
 class PlagiarismChecker:
-    """Dịch vụ chính xử lý phát hiện đạo văn"""
+    """Main service cho plagiarism detection"""
     
     def __init__(self, redis_client=None):
         self.redis_client = redis_client
-        
-        # Khởi tạo chỉ mục LSH
+        # Initialize LSH index
         self.lsh_index = LSHIndex(
             threshold=settings.LSH_THRESHOLD,
             num_perm=settings.MINHASH_PERMUTATIONS
         )
         
-        # Tải dữ liệu corpus từ Redis
+        # Load corpus from Redis
         if redis_client:
             self._load_corpus()
     
     def _load_corpus(self):
-        """Tải corpus từ Redis vào LSH index"""
+        """Load corpus từ Redis vào LSH index"""
         import json
         import numpy as np
         
@@ -102,7 +101,7 @@ class PlagiarismChecker:
                     if isinstance(sig_data, bytes):
                         sig_data = sig_data.decode()
                     
-                    # Khôi phục MinHash từ JSON với cùng seed
+                    # Reconstruct MinHash from JSON with same seed
                     from app.services.algorithm.minhash import MINHASH_SEED
                     minhash = MinHash(num_perm=settings.MINHASH_PERMUTATIONS, seed=MINHASH_SEED)
                     hashvalues = json.loads(sig_data)
@@ -111,21 +110,21 @@ class PlagiarismChecker:
                     self.lsh_index.insert(doc_id, minhash)
                     loaded += 1
             
-            print(f"✅ Đã tải {loaded} tài liệu vào LSH index")
+            print(f"✅ Loaded {loaded} documents into LSH index")
         except Exception as e:
-            print(f"⚠️ Không thể tải corpus: {e}")
+            print(f"⚠️ Could not load corpus: {e}")
     
     def _get_text_from_postgres(self, doc_id: str, pg_id: str = None) -> str:
         """
-        Lấy nội dung văn bản từ PostgreSQL thay vì Redis
-        → Giảm sử dụng RAM do Redis lưu trên bộ nhớ
+        Query document text from PostgreSQL instead of Redis.
+        This saves RAM as Redis runs in memory.
         
         Args:
-            doc_id: ID rút gọn của tài liệu
-            pg_id: UUID đầy đủ trong PostgreSQL (nếu có)
+            doc_id: Short document ID (8 chars from UUID)
+            pg_id: Full PostgreSQL UUID if available from Redis metadata
         
         Returns:
-            Nội dung văn bản hoặc None nếu không tìm thấy
+            Extracted text from document or None if not found
         """
         try:
             db = SessionLocal()
@@ -133,7 +132,7 @@ class PlagiarismChecker:
                 import uuid as uuid_module
                 doc = None
                 
-                # Cách 1: Tìm bằng pg_id
+                # Method 1: Try pg_id (full UUID from Redis metadata)
                 if pg_id:
                     try:
                         full_uuid = uuid_module.UUID(pg_id)
@@ -141,7 +140,7 @@ class PlagiarismChecker:
                     except (ValueError, AttributeError):
                         pass
                 
-                # Cách 2: Tạo UUID giả từ doc_id
+                # Method 2: Try padded UUID (doc_id + zeros)
                 if not doc:
                     full_uuid_str = doc_id + '0' * (32 - len(doc_id))
                     try:
@@ -150,7 +149,7 @@ class PlagiarismChecker:
                     except ValueError:
                         pass
                 
-                # Cách 3: Tìm theo prefix ID
+                # Method 3: Search by ID prefix using string cast
                 if not doc:
                     from sqlalchemy import cast, String
                     doc = db.query(Document).filter(
@@ -159,7 +158,7 @@ class PlagiarismChecker:
                         cast(Document.id, String).like(f"{doc_id}%")
                     ).first()
                 
-                # Cách 4: Fallback theo hash
+                # Method 4: Fallback - search any corpus doc with matching hash prefix
                 if not doc:
                     doc = db.query(Document).filter(
                         Document.is_corpus == 1,
@@ -175,11 +174,11 @@ class PlagiarismChecker:
             finally:
                 db.close()
         except Exception as e:
-            print(f"⚠️ Lỗi truy vấn PostgreSQL cho doc {doc_id}: {e}")
+            print(f"⚠️ Error querying PostgreSQL for doc {doc_id}: {e}")
             return None
     
     def _extract_text(self, file_path: str, filename: str) -> str:
-        """Trích xuất nội dung văn bản từ file"""
+        """Extract text từ file"""
         ext = os.path.splitext(filename)[1].lower()
         
         if ext == '.pdf':
@@ -188,45 +187,242 @@ class PlagiarismChecker:
         elif ext == '.docx':
             from docx import Document
             try:
+                # Add delay to ensure file is fully written on Windows
+                import time
                 time.sleep(0.5)
                 
+                # Verify file exists and is readable
                 if not os.path.exists(file_path):
-                    raise FileNotFoundError(f"Không tìm thấy file DOCX: {file_path}")
+                    raise FileNotFoundError(f"DOCX file not found: {file_path}")
                 
                 if os.path.getsize(file_path) == 0:
-                    raise ValueError("File DOCX rỗng")
+                    raise ValueError("DOCX file is empty")
                 
                 doc = Document(file_path)
                 text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
                 
                 if not text.strip():
-                    raise ValueError("Không có nội dung trong file DOCX")
+                    raise ValueError("No text content found in DOCX file")
                 
                 return text
                     
             except Exception as e:
-                print(f"❌ Lỗi đọc file DOCX: {e}")
+                print(f"❌ Error reading DOCX file: {e}")
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Không thể đọc file DOCX: {str(e)}"
+                    detail=f"Cannot read DOCX file: {str(e)}. Please ensure the file is a valid Word document."
                 )
         else:
             with open(file_path, 'r', encoding='utf-8') as f:
                 return f.read()
     
     def _process_text(self, text: str) -> Tuple[List[str], MinHash]:
-        """Xử lý văn bản → token → shingles → MinHash"""
-        
-        # Chuẩn hóa văn bản
+        """Process text → tokens → shingles → MinHash"""
+        # Normalize
         text = normalize_text(text)
         
-        # Tách từ tiếng Việt
+        # Tokenize (Vietnamese NLP)
         tokens = preprocess_vietnamese(text)
         
-        # Tạo shingles
+        # Create shingles
         shingles = create_shingles(tokens, k=settings.SHINGLE_SIZE)
         
-        # Tạo chữ ký MinHash
+        # Create MinHash signature
         minhash = create_minhash_signature(shingles)
         
         return tokens, minhash
+    
+    # ═══════════════════════════════════════════════════════════
+    # FEATURE 1: So sánh 2 files với nhau
+    # ═══════════════════════════════════════════════════════════
+    
+    def compare_two_files(self, file1_path: str, file1_name: str,
+                          file2_path: str, file2_name: str) -> ComparisonResult:
+        """
+        So sánh 2 files với nhau
+        
+        Args:
+            file1_path: Path to first file
+            file1_name: Name of first file
+            file2_path: Path to second file
+            file2_name: Name of second file
+        
+        Returns:
+            ComparisonResult với similarity score
+        """
+        start_time = time.time()
+        
+        # Extract text from both files
+        text1 = self._extract_text(file1_path, file1_name)
+        text2 = self._extract_text(file2_path, file2_name)
+        
+        # Process both texts
+        tokens1, minhash1 = self._process_text(text1)
+        tokens2, minhash2 = self._process_text(text2)
+        
+        # Calculate Jaccard similarity
+        similarity = estimate_jaccard(minhash1, minhash2)
+        
+        processing_time = int((time.time() - start_time) * 1000)
+        
+        return ComparisonResult(
+            similarity=similarity,
+            is_similar=similarity >= 0.4,  # 40% threshold
+            file1_word_count=len(tokens1),
+            file2_word_count=len(tokens2),
+            processing_time_ms=processing_time
+        )
+    
+    def compare_two_texts(self, text1: str, text2: str) -> ComparisonResult:
+        """So sánh 2 đoạn text trực tiếp"""
+        start_time = time.time()
+        
+        tokens1, minhash1 = self._process_text(text1)
+        tokens2, minhash2 = self._process_text(text2)
+        
+        similarity = estimate_jaccard(minhash1, minhash2)
+        
+        processing_time = int((time.time() - start_time) * 1000)
+        
+        return ComparisonResult(
+            similarity=similarity,
+            is_similar=similarity >= 0.4,
+            file1_word_count=len(tokens1),
+            file2_word_count=len(tokens2),
+            processing_time_ms=processing_time
+        )
+    
+    # ═══════════════════════════════════════════════════════════
+    # FEATURE 2: Check 1 file với corpus
+    # ═══════════════════════════════════════════════════════════
+    
+    def check_against_corpus(self, file_path: str, filename: str) -> PlagiarismResult:
+        """
+        Check 1 file với corpus
+        
+        Args:
+            file_path: Path to file
+            filename: Name of file
+        
+        Returns:
+            PlagiarismResult với matches từ corpus (bao gồm chi tiết từng đoạn trùng khớp)
+        """
+        start_time = time.time()
+        
+        # Extract and process
+        text = self._extract_text(file_path, filename)
+        tokens, minhash = self._process_text(text)
+        
+        # Query LSH index
+        candidates = self.lsh_index.query(minhash, top_k=20)
+        
+        # Build matches list với matched segments
+        matches = []
+        for doc_id, similarity in candidates:
+            if similarity >= 0.2:  # Minimum 20% similarity
+                # Get metadata from Redis
+                metadata = {}
+                source_text = None
+                pg_id = None
+                
+                if self.redis_client:
+                    # Get metadata from Redis (fast, lightweight)
+                    meta_key = f"doc:meta:{doc_id}"
+                    metadata = self.redis_client.hgetall(meta_key)
+                    if metadata and isinstance(list(metadata.keys())[0], bytes):
+                        metadata = {k.decode(): v.decode() for k, v in metadata.items()}
+                    
+                    # Get pg_id for PostgreSQL lookup
+                    pg_id = metadata.get('pg_id')
+                
+                # Get source text from PostgreSQL (not Redis - saves RAM)
+                # Query by pg_id or doc_id pattern matching in documents table
+                source_text = self._get_text_from_postgres(doc_id, pg_id)
+                
+                # Find matched segments if source text available
+                matched_segments = []
+                if source_text:
+                    source_tokens = preprocess_vietnamese(normalize_text(source_text))
+                    segments_data = find_common_shingles(tokens, source_tokens, k=settings.SHINGLE_SIZE)
+                    
+                    # Show up to 50 segments per match (sorted by length, longest first)
+                    for seg in segments_data[:50]:
+                        matched_segments.append(MatchedSegment(
+                            query_text=seg["query_text"],
+                            query_start=seg["query_start"],
+                            query_end=seg["query_end"],
+                            source_text=seg["source_text"],
+                            source_start=seg["source_start"],
+                            source_end=seg["source_end"]
+                        ))
+                
+                matches.append(CorpusMatch(
+                    doc_id=doc_id,
+                    title=metadata.get('title', 'Unknown'),
+                    author=metadata.get('author', 'Unknown'),
+                    university=metadata.get('university', 'Unknown'),
+                    year=int(metadata.get('year', 0)) or None,
+                    similarity=similarity,
+                    matched_segments=matched_segments if matched_segments else None
+                ))
+        
+        # Sort by similarity
+        matches.sort(key=lambda x: x.similarity, reverse=True)
+        matches = matches[:10]  # Top 10
+        
+        # Calculate overall similarity
+        overall_sim = matches[0].similarity if matches else 0.0
+        
+        # Determine level
+        if overall_sim >= 0.7:
+            level = "high"
+            is_plagiarized = True
+        elif overall_sim >= 0.4:
+            level = "medium"
+            is_plagiarized = True
+        elif overall_sim >= 0.2:
+            level = "low"
+            is_plagiarized = True
+        else:
+            level = "none"
+            is_plagiarized = False
+        
+        processing_time = int((time.time() - start_time) * 1000)
+        
+        return PlagiarismResult(
+            is_plagiarized=is_plagiarized,
+            overall_similarity=overall_sim,
+            plagiarism_level=level,
+            matches=matches,
+            word_count=len(tokens),
+            processing_time_ms=processing_time
+        )
+    
+    # ═══════════════════════════════════════════════════════════
+    # CORPUS MANAGEMENT
+    # ═══════════════════════════════════════════════════════════
+    
+    def add_to_corpus(self, doc_id: str, text: str, metadata: Dict) -> bool:
+        """Thêm 1 document vào corpus"""
+        try:
+            tokens, minhash = self._process_text(text)
+            
+            # Insert into LSH index
+            self.lsh_index.insert(doc_id, minhash)
+            
+            # Store in Redis if available
+            if self.redis_client:
+                # Store signature
+                self.redis_client.set(f"doc:sig:{doc_id}", minhash.digest().hex())
+                
+                # Store metadata
+                self.redis_client.hset(f"doc:meta:{doc_id}", mapping=metadata)
+            
+            return True
+        except Exception as e:
+            print(f"Error adding to corpus: {e}")
+            return False
+    
+    def get_corpus_stats(self) -> Dict:
+        """Get corpus statistics"""
+        return self.lsh_index.get_stats()
