@@ -1,57 +1,136 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Typography, Card, Row, Col, Button, Progress, Tag, List, Empty } from 'antd';
-import { useNavigate } from 'react-router-dom';
-import { CheckCircleOutlined, WarningOutlined, HistoryOutlined, UploadOutlined } from '@ant-design/icons';
-import { getPlagiarismResult, PlagiarismCheckResult } from '../services/api';
+import { Layout, Typography, Card, Row, Col, Button, Progress, Tag, List, Empty, Spin } from 'antd';
+import { useNavigate, useParams } from 'react-router-dom';
+import { CheckCircleOutlined, WarningOutlined, HistoryOutlined, UploadOutlined, SyncOutlined } from '@ant-design/icons';
+import { getJobStatus, getCheckResult, PlagiarismCheckResult, getPlagiarismResult } from '../services/api';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
 
 /**
- * Trang Kết quả kiểm tra (Result Page)
- * - Hiển thị chi tiết kết quả kiểm tra đạo văn: độ tương đồng, thống kê, danh sách trùng khớp
- * - Lấy dữ liệu từ API hoặc lưu trữ tạm (storedResult)
- * - Hiển thị empty state nếu không có kết quả
- * - Hỗ trợ điều hướng về upload hoặc lịch sử
+ * Trang Kết quả kiểm tra (Bản PRO - Hỗ trợ Polling)
  */
 export const ResultPage: React.FC = () => {
+  const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
 
-  // Kết quả kiểm tra đạo văn (null nếu chưa có)
+  // State lưu kết quả và trạng thái
   const [result, setResult] = useState<PlagiarismCheckResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<string>('pending');
 
-  // Lấy kết quả từ API khi component mount
   useEffect(() => {
-    const storedResult = getPlagiarismResult();
-    if (storedResult) {
-      setResult(storedResult);
-    }
-  }, []);
+    let pollInterval: NodeJS.Timeout;
 
-  // Không có kết quả → hiển thị empty state với nút CTA
-  if (!result) {
+    const fetchResult = async () => {
+      // 1. Trường hợp dùng luồng Demo (không có jobId trong URL)
+      if (!jobId) {
+        const storedResult = getPlagiarismResult();
+        if (storedResult) {
+          setResult(storedResult);
+          setLoading(false);
+          setJobStatus('done');
+        } else {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // 2. Trường hợp dùng luồng Pro (Có jobId) -> Bắt đầu Polling
+      setLoading(true);
+      
+      const poll = async () => {
+        try {
+          const statusRes = await getJobStatus(jobId);
+          setJobStatus(statusRes.status);
+
+          if (statusRes.status === 'done') {
+            // Lấy kết quả cuối cùng
+            const finalResult = await getCheckResult(jobId);
+            setResult(finalResult);
+            setLoading(false);
+            clearInterval(pollInterval);
+          } else if (statusRes.status === 'failed') {
+            setError(statusRes.error || 'Quá trình xử lý thất bại');
+            setLoading(false);
+            clearInterval(pollInterval);
+          }
+        } catch (err: any) {
+          console.error('Polling error:', err);
+          setError('Không thể kết nối với server');
+          setLoading(false);
+          clearInterval(pollInterval);
+        }
+      };
+
+      // Chạy poll ngay lập tức và sau đó mỗi 3 giây
+      poll();
+      pollInterval = setInterval(poll, 3000);
+    };
+
+    fetchResult();
+
+    // Cleanup interval khi component unmount
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [jobId]);
+
+  // --- RENDERING LOGIC ---
+
+  // 1. Đang tải hoặc đang xử lý
+  if (loading && !result) {
     return (
       <Layout>
+        <Content style={{ padding: '50px', textAlign: 'center', marginTop: 100 }}>
+          <Card style={{ maxWidth: 600, margin: '0 auto' }}>
+            <Spin indicator={<SyncOutlined spin style={{ fontSize: 48 }} />} />
+            <div style={{ marginTop: 24 }}>
+              <Title level={4}>
+                {jobStatus === 'processing' ? 'Đang phân tích tài liệu...' : 'Đang chuẩn bị...'}
+              </Title>
+              <Text type="secondary">Vui lòng không đóng trình duyệt. Hệ thống đang quét hơn 3,000 tài liệu trong cơ sở dữ liệu.</Text>
+            </div>
+            <div style={{ marginTop: 24 }}>
+               <Tag color="blue">{jobStatus.toUpperCase()}</Tag>
+            </div>
+          </Card>
+        </Content>
+      </Layout>
+    );
+  }
+
+  // 2. Lỗi
+  if (error) {
+    return (
+      <Layout>
+        <Content style={{ padding: '50px', textAlign: 'center', marginTop: 100 }}>
+          <Card style={{ maxWidth: 600, margin: '0 auto' }}>
+            <WarningOutlined style={{ fontSize: 48, color: '#ff4d4f' }} />
+            <Title level={4} style={{ marginTop: 24 }}>Lỗi hệ thống</Title>
+            <Paragraph>{error}</Paragraph>
+            <Button type="primary" onClick={() => navigate('/upload')}>Quay lại Upload</Button>
+          </Card>
+        </Content>
+      </Layout>
+    );
+  }
+
+  // 3. Không tìm thấy kết quả
+  if (!result) {
+    return (
+      <Layout style={{ minHeight: '100vh', background: '#fff' }}>
         <Content style={{ padding: '50px', maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
-          <Empty
-            description="Không có kết quả kiểm tra"
-            style={{ marginTop: 100 }}
-          >
-            <Button type="primary" icon={<UploadOutlined />} onClick={() => navigate('/upload')}>
-              Kiểm tra ngay
-            </Button>
+          <Empty description="Không tìm thấy kết quả" style={{ marginTop: 100 }}>
+            <Button type="primary" icon={<UploadOutlined />} onClick={() => navigate('/upload')}>Tải lên ngay</Button>
           </Empty>
         </Content>
       </Layout>
     );
   }
 
-  /**
-   * Hàm helper: trả về màu sắc dựa trên mức độ đạo văn
-   * - high → đỏ (#ff4d4f)
-   * - medium → vàng (#faad14)
-   * - low / default → xanh (#52c41a)
-   */
+  // 4. Hiển thị kết quả (giữ nguyên UI cũ nhưng dùng dữ liệu từ result state)
   const getColor = () => {
     switch (result.plagiarism_level) {
       case 'high': return '#ff4d4f';
@@ -61,13 +140,6 @@ export const ResultPage: React.FC = () => {
     }
   };
 
-  /**
-   * Hàm helper: trả về text mức độ đạo văn
-   * - high → CAO
-   * - medium → TRUNG BÌNH
-   * - low → THẤP
-   * - default → KHÔNG PHÁT HIỆN
-   */
   const getLevelText = () => {
     switch (result.plagiarism_level) {
       case 'high': return 'CAO';
@@ -78,21 +150,16 @@ export const ResultPage: React.FC = () => {
   };
 
   return (
-    <Layout>
+    <Layout style={{ background: '#fff' }}>
       <Content style={{ padding: '50px', maxWidth: 900, margin: '0 auto' }}>
-        {/* Tiêu đề trang + tên file */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <Title level={2}>Kết Quả Kiểm Tra</Title>
           <Text type="secondary">{result.filename}</Text>
         </div>
 
         <Row gutter={[24, 24]}>
-          {/* Card kết quả chính: icon + progress circle + tag mức độ */}
           <Col xs={24} md={12}>
-            <Card
-              style={{ textAlign: 'center', height: '100%' }}
-              bordered={false}
-            >
+            <Card style={{ textAlign: 'center', height: '100%' }} bordered={false}>
               <div style={{ marginBottom: 20 }}>
                 {result.is_plagiarized ? (
                   <WarningOutlined style={{ fontSize: 48, color: getColor() }} />
@@ -100,131 +167,59 @@ export const ResultPage: React.FC = () => {
                   <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a' }} />
                 )}
               </div>
-
               <Progress
                 type="dashboard"
                 percent={result.overall_similarity}
                 strokeColor={getColor()}
                 format={(percent) => (
                   <div>
-                    <div style={{ fontSize: 28, fontWeight: 'bold', color: getColor() }}>
-                      {percent}%
-                    </div>
+                    <div style={{ fontSize: 28, fontWeight: 'bold', color: getColor() }}>{percent}%</div>
                     <div style={{ fontSize: 12, color: '#8c8c8c' }}>ĐỘ TƯƠNG ĐỒNG</div>
                   </div>
                 )}
                 size={180}
               />
-
               <div style={{ marginTop: 20 }}>
-                <Tag
-                  color={getColor()}
-                  style={{ fontSize: 14, padding: '4px 16px' }}
-                >
-                  Mức độ: {getLevelText()}
-                </Tag>
+                <Tag color={getColor()} style={{ fontSize: 14, padding: '4px 16px' }}>Mức độ: {getLevelText()}</Tag>
               </div>
             </Card>
           </Col>
-
-          {/* Card thống kê thông tin */}
           <Col xs={24} md={12}>
-            <Card title="Thông tin" style={{ height: '100%' }}>
-              <p><strong>Tên file:</strong> {result.filename}</p>
+            <Card title="Thông số kỹ thuật" style={{ height: '100%' }}>
               <p><strong>Số từ:</strong> {result.word_count.toLocaleString()}</p>
-              <p><strong>Thời gian xử lý:</strong> {result.processing_time_ms}ms</p>
-              <p><strong>Corpus:</strong> {result.corpus_size} tài liệu</p>
-              <p><strong>Số nguồn trùng khớp:</strong> {result.matches.length}</p>
+              <p><strong>Thời gian quét:</strong> {result.processing_time_ms}ms</p>
+              <p><strong>Nguồn đối chiếu:</strong> Toàn bộ Corpus (PostgreSQL + Redis)</p>
+              <p><strong>Số match tìm thấy:</strong> {result.matches.length}</p>
             </Card>
           </Col>
         </Row>
 
-        {/* Danh sách tài liệu trùng khớp (nếu có) */}
         {result.matches.length > 0 && (
-          <Card title="Danh sách tài liệu trùng khớp" style={{ marginTop: 24 }}>
+          <Card title="Chi tiết các nguồn trùng khớp" style={{ marginTop: 24 }}>
             <List
               dataSource={result.matches}
-              renderItem={(match, index) => (
+              renderItem={(match) => (
                 <List.Item style={{ display: 'block' }}>
                   <List.Item.Meta
-                    avatar={
-                      <Tag
-                        color={match.similarity >= 70 ? 'red' : match.similarity >= 40 ? 'orange' : 'green'}
-                        style={{ width: 60, textAlign: 'center' }}
-                      >
-                        {match.similarity.toFixed(2)}%
-                      </Tag>
-                    }
+                    avatar={<Tag color={match.similarity >= 0.7 ? 'red' : 'orange'}>{(match.similarity * 100).toFixed(1)}%</Tag>}
                     title={match.title}
-                    description={
-                      <div>
-                        <Text type="secondary">
-                          {match.author} - {match.university}
-                          {match.year && ` (${match.year})`}
-                        </Text>
-                      </div>
-                    }
+                    description={`${match.author} - ${match.university} ${match.year ? `(${match.year})` : ''}`}
                   />
-
-                  {/* Hiển thị matched segments nếu có */}
-                  {match.matched_segments && match.matched_segments.length > 0 && (
-                    <div style={{ marginTop: 12, marginLeft: 70 }}>
-                      <details style={{ cursor: 'pointer' }}>
-                        <summary style={{ color: '#1890ff', marginBottom: 8 }}>
-                          Xem {match.matched_segments.length} đoạn trùng khớp
-                        </summary>
-                        <div style={{
-                          background: '#fafafa',
-                          padding: 16,
-                          borderRadius: 8,
-                          maxHeight: 300,
-                          overflowY: 'auto'
-                        }}>
-                          {match.matched_segments.map((seg, segIdx) => (
-                            <div key={segIdx} style={{
-                              marginBottom: 16,
-                              padding: 12,
-                              background: 'white',
-                              borderRadius: 6,
-                              border: '1px solid #f0f0f0'
-                            }}>
-                              <div style={{ marginBottom: 8 }}>
-                                <Tag color="blue" style={{ marginBottom: 4 }}>Đoạn {segIdx + 1}</Tag>
-                              </div>
-                              <div style={{ display: 'flex', gap: 16 }}>
-                                <div style={{ flex: 1 }}>
-                                  <Text strong style={{ color: '#ff4d4f', display: 'block', marginBottom: 4 }}>
-                                    File của bạn:
-                                  </Text>
-                                  <Text style={{
-                                    background: '#fff2f0',
-                                    padding: '4px 8px',
-                                    borderRadius: 4,
-                                    display: 'block',
-                                    fontSize: 13
-                                  }}>
-                                    "{seg.query_text}"
-                                  </Text>
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                  <Text strong style={{ color: '#52c41a', display: 'block', marginBottom: 4 }}>
-                                    Nguồn trùng khớp:
-                                  </Text>
-                                  <Text style={{
-                                    background: '#f6ffed',
-                                    padding: '4px 8px',
-                                    borderRadius: 4,
-                                    display: 'block',
-                                    fontSize: 13
-                                  }}>
-                                    "{seg.source_text}"
-                                  </Text>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </details>
+                  {match.matched_segments && (
+                    <div style={{ marginTop: 12, paddingLeft: 40 }}>
+                       <details>
+                         <summary style={{ color: '#1890ff', cursor: 'pointer' }}>Xem {match.matched_segments.length} đoạn nội dung trùng khớp</summary>
+                         <div style={{ marginTop: 12, background: '#f9f9f9', padding: 12, borderRadius: 8 }}>
+                           {match.matched_segments.map((seg, i) => (
+                             <div key={i} style={{ marginBottom: 12, borderBottom: '1px solid #eee', paddingBottom: 8 }}>
+                               <Text type="danger" strong>Bài của bạn: </Text>
+                               <Paragraph>"{seg.query_text}"</Paragraph>
+                               <Text type="success" strong>Nguồn trùng: </Text>
+                               <Paragraph>"{seg.source_text}"</Paragraph>
+                             </div>
+                           ))}
+                         </div>
+                       </details>
                     </div>
                   )}
                 </List.Item>
@@ -233,26 +228,13 @@ export const ResultPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Nút hành động: kiểm tra mới hoặc xem lịch sử */}
         <div style={{ marginTop: 40, textAlign: 'center' }}>
-          <Button
-            type="primary"
-            icon={<UploadOutlined />}
-            size="large"
-            onClick={() => navigate('/upload')}
-            style={{ marginRight: 16 }}
-          >
-            Kiểm tra tài liệu khác
-          </Button>
-          <Button
-            icon={<HistoryOutlined />}
-            size="large"
-            onClick={() => navigate('/history')}
-          >
-            Xem lịch sử
-          </Button>
+          <Button type="primary" icon={<UploadOutlined />} size="large" onClick={() => navigate('/upload')} style={{ marginRight: 16 }}>Kiểm tra bài khác</Button>
+          <Button icon={<HistoryOutlined />} size="large" onClick={() => navigate('/history')}>Xem lịch sử</Button>
         </div>
       </Content>
     </Layout>
   );
 };
+
+const Paragraph = Typography.Paragraph;
