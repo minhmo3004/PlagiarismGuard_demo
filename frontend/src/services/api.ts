@@ -106,22 +106,18 @@ export interface PlagiarismCheckResult {
 // Các hàm gọi API chính
 // ──────────────────────────────────────────────────────────────────────────────
 
-/**
- * Upload file và kiểm tra đạo văn theo quy trình PRO (Asynchronous /check)
- * - Trả về job_id để frontend tiến hành polling trạng thái
- */
-export const uploadDocumentPro = async (file: File): Promise<UploadResponse> => {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const response = await apiClient.post<UploadResponse>('/check/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-
-  return response.data;
-};
+// ──────────────────────────────────────────────────────────────────────────────
+// [HIỆN TẠI KHÔNG DÙNG] Pro flow - Route /check (cần đăng nhập)
+// Bật lại khi hệ thống auth ổn định
+// ──────────────────────────────────────────────────────────────────────────────
+// export const uploadDocumentPro = async (file: File): Promise<UploadResponse> => {
+//   const formData = new FormData();
+//   formData.append('file', file);
+//   const response = await apiClient.post<UploadResponse>('/check/upload', formData, {
+//     headers: { 'Content-Type': 'multipart/form-data' },
+//   });
+//   return response.data;
+// };
 
 /**
  * Upload file và kiểm tra đạo văn trực tiếp (Legacy Synchronous /plagiarism/check)

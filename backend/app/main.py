@@ -67,11 +67,14 @@ async def health_check():
 
 
 # Đăng ký các router API
-from app.api.routes import auth, check, plagiarism
+from app.api.routes import auth, plagiarism
 
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
-app.include_router(check.router, prefix=settings.API_V1_PREFIX)
 app.include_router(plagiarism.router, prefix=settings.API_V1_PREFIX)
+
+# Route /check (Pro - cần đăng nhập) tạm tắt, bật lại khi cần:
+# from app.api.routes import check
+# app.include_router(check.router, prefix=settings.API_V1_PREFIX)
 
 
 if __name__ == "__main__":
