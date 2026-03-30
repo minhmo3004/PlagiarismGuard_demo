@@ -4,15 +4,10 @@ Celery tasks for background processing
 from celery import Task
 from celery.exceptions import MaxRetriesExceededError
 from app.workers.celery_app import app
-from app.services.algorithm.pipeline import PlagiarismPipeline
 from app.db.database import SessionLocal
-from app.services.storage import S3Storage
 from app.services.document_service import DocumentService
-from app.services.similarity_service import SimilarityService
-from app.services.algorithm.shingling import create_shingles
-from app.services.algorithm.minhash import create_minhash_signature
-from app.services.preprocessing.pdf_extractor import extract_text_with_fallback
-from app.services.preprocessing.pipeline import extract_docx
+from app.services.plagiarism_checker import PlagiarismChecker
+from app.api.deps import get_minio_storage
 import tempfile
 import os
 from datetime import datetime, timedelta
@@ -35,8 +30,6 @@ class PermanentError(Exception):
     pass
 
 
-from app.services.plagiarism_checker import PlagiarismChecker
-from app.api.deps import get_minio_storage
 from redis import Redis
 import uuid
 import json
@@ -66,7 +59,7 @@ def process_document(self: Task, job_id: str, doc_id: str, file_type: str):
         # 2. Setup Services
         redis_client = Redis.from_url(settings.REDIS_URL, decode_responses=True)
         checker = PlagiarismChecker(redis_client=redis_client)
-        storage = S3Storage()
+        storage = get_minio_storage()
 
         # 3. Download and Extract
         try:
@@ -75,8 +68,7 @@ def process_document(self: Task, job_id: str, doc_id: str, file_type: str):
             with tempfile.NamedTemporaryFile(delete=False, suffix=tmp_suffix) as tmp:
                 tmp_path = tmp.name
             
-            storage.download_to_path(object_name, tmp_path)
-            
+            storage.download_file(object_name) # MinIOStorage logic - though internal extraction is preferred
             # Using checker's internal extraction logic
             text = checker._extract_text(tmp_path, doc.original_filename)
         except Exception as e:
