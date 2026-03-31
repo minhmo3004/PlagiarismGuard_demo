@@ -158,32 +158,11 @@ function App() {
         <Routes>
           {/* Route public: không cần đăng nhập */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/upload" element={<UploadPage />} />
+          <Route path="/result/:jobId" element={<ResultPage />} />
 
           {/* Route protected: yêu cầu đăng nhập */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/upload"
-            element={
-              <ProtectedRoute>
-                <UploadPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/result/:jobId"
-            element={
-              <ProtectedRoute>
-                <ResultPage />
-              </ProtectedRoute>
-            }
-          />
           <Route
             path="/history"
             element={
