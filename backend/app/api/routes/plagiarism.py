@@ -1,9 +1,9 @@
 """
 Các route API phát hiện đạo văn - PHIÊN BẢN ĐƠN GIẢN (Không yêu cầu xác thực)
-2 Tính năng chính:
-1. POST /compare - So sánh 2 file
-2. POST /check - Kiểm tra 1 file với toàn bộ corpus
-3. GET /history - Lịch sử kiểm tra
+Tính năng chính:
+
+1. POST /check - Kiểm tra 1 file với toàn bộ corpus
+2. GET /history - Lịch sử kiểm tra
 """
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends
 from typing import List, Optional

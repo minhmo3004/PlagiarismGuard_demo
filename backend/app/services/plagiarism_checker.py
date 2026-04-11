@@ -2,9 +2,7 @@
 Plagiarism Checker Service
 Kết nối tất cả modules để check đạo văn
 
-2 Features:
-1. compare_two_files: So sánh 2 files với nhau
-2. check_against_corpus: Check 1 file với corpus
+Features: check_against_corpus: Check 1 file với corpus
 """
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
@@ -23,16 +21,6 @@ from app.services.algorithm.lsh_index import LSHIndex
 from app.config import settings
 from app.db.database import SessionLocal
 from app.db.models import Document
-
-
-@dataclass
-class ComparisonResult:
-    """Kết quả so sánh 2 files"""
-    similarity: float
-    is_similar: bool
-    file1_word_count: int
-    file2_word_count: int
-    processing_time_ms: int
 
 
 @dataclass
@@ -233,67 +221,7 @@ class PlagiarismChecker:
         return tokens, minhash
     
     # ═══════════════════════════════════════════════════════════
-    # FEATURE 1: So sánh 2 files với nhau
-    # ═══════════════════════════════════════════════════════════
-    
-    def compare_two_files(self, file1_path: str, file1_name: str,
-                          file2_path: str, file2_name: str) -> ComparisonResult:
-        """
-        So sánh 2 files với nhau
-        
-        Args:
-            file1_path: Path to first file
-            file1_name: Name of first file
-            file2_path: Path to second file
-            file2_name: Name of second file
-        
-        Returns:
-            ComparisonResult với similarity score
-        """
-        start_time = time.time()
-        
-        # Extract text from both files
-        text1 = self._extract_text(file1_path, file1_name)
-        text2 = self._extract_text(file2_path, file2_name)
-        
-        # Process both texts
-        tokens1, minhash1 = self._process_text(text1)
-        tokens2, minhash2 = self._process_text(text2)
-        
-        # Calculate Jaccard similarity
-        similarity = estimate_jaccard(minhash1, minhash2)
-        
-        processing_time = int((time.time() - start_time) * 1000)
-        
-        return ComparisonResult(
-            similarity=similarity,
-            is_similar=similarity >= 0.4,  # 40% threshold
-            file1_word_count=len(tokens1),
-            file2_word_count=len(tokens2),
-            processing_time_ms=processing_time
-        )
-    
-    def compare_two_texts(self, text1: str, text2: str) -> ComparisonResult:
-        """So sánh 2 đoạn text trực tiếp"""
-        start_time = time.time()
-        
-        tokens1, minhash1 = self._process_text(text1)
-        tokens2, minhash2 = self._process_text(text2)
-        
-        similarity = estimate_jaccard(minhash1, minhash2)
-        
-        processing_time = int((time.time() - start_time) * 1000)
-        
-        return ComparisonResult(
-            similarity=similarity,
-            is_similar=similarity >= 0.4,
-            file1_word_count=len(tokens1),
-            file2_word_count=len(tokens2),
-            processing_time_ms=processing_time
-        )
-    
-    # ═══════════════════════════════════════════════════════════
-    # FEATURE 2: Check 1 file với corpus
+    # FEATURE: Check 1 file với corpus
     # ═══════════════════════════════════════════════════════════
     
     def check_against_corpus(self, file_path: str, filename: str) -> PlagiarismResult:
