@@ -182,7 +182,7 @@ Sau khi đăng nhập:
 
 | Service | URL | Mô tả |
 |---------|-----|-------|
-| Frontend | http://localhost:3000 | Giao diện người dùng |
+| Frontend | http://localhost:3 000 | Giao diện người dùng |
 | API Docs | http://localhost:8000/docs | Swagger API |
 | MinIO | http://localhost:9001 | File storage (minioadmin/minioadmin) |
 

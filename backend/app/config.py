@@ -49,9 +49,9 @@ class Settings(BaseSettings):
     # Tham số MinHash / LSH
     MINHASH_SEED: int = 42
     MINHASH_PERMUTATIONS: int = 128
-    LSH_THRESHOLD: float = 0.3   # Đã giảm từ 0.4 để tăng khả năng phát hiện
-    LSH_BANDS: int = 16
-    LSH_ROWS: int = 8
+    LSH_THRESHOLD: float = 0.2   
+    LSH_BANDS: int = 32
+    LSH_ROWS: int = 4
     SHINGLE_SIZE: int = 7
     
     # Cấu hình OCR

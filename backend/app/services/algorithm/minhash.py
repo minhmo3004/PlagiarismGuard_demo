@@ -22,7 +22,7 @@ def create_minhash_signature(shingles: Set[int]) -> MinHash:
     
     Returns:
         Đối tượng MinHash chứa chữ ký đã tạo
-    
+
     Raises:
         ValueError: Nếu tập shingles rỗng
     

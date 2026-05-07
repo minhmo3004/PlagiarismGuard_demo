@@ -247,7 +247,7 @@ class PlagiarismChecker:
         # Build matches list với matched segments
         matches = []
         for doc_id, similarity in candidates:
-            if similarity >= 0.2:  # Minimum 20% similarity
+            if similarity >= settings.LSH_THRESHOLD:  # Minimum 20% similarity
                 # Get metadata from Redis
                 metadata = {}
                 source_text = None
