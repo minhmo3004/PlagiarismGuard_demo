@@ -115,7 +115,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       {/* Header: logo + menu trái + menu phải */}
       <Header style={{ display: 'flex', alignItems: 'center', background: '#001529' }}>
         <div style={{ color: 'white', fontSize: 20, fontWeight: 'bold', marginRight: 50 }}>
-          PlagiarismGuard 2.0
+          PlagiarismGuard
         </div>
         <Menu
           theme="dark"

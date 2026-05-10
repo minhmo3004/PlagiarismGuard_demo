@@ -18,7 +18,7 @@ class LSHIndex:
     Cấu hình mặc định:
         threshold=0.3, num_perm=128 (b=32, r=4 → b*r=128)
         - Với similarity s=0.5: Xác suất phát hiện ≈ 86%
-        - Với similarity s=0.2: Xác suất false positive ≈ 5%
+        - Với similarity s=0.3: Xác suất false positive ≈ 5%
     """
     
     def __init__(self, threshold: float = 0.3, num_perm: int = 128):

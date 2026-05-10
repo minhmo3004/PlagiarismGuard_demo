@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     # Tham số MinHash / LSH
     MINHASH_SEED: int = 42
     MINHASH_PERMUTATIONS: int = 128
-    LSH_THRESHOLD: float = 0.2   
+    LSH_THRESHOLD: float = 0.3   
     LSH_BANDS: int = 32
     LSH_ROWS: int = 4
     SHINGLE_SIZE: int = 7
