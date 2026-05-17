@@ -133,16 +133,22 @@ def find_common_shingles(
     if not matched_ranges:
         return []
     
-    # Sắp xếp theo vị trí trong query
-    matched_ranges.sort(key=lambda x: x["query_start"])
-    
+    # Sắp xếp theo query_start trước, source_start sau để đảm bảo thứ tự nhất quán
+    matched_ranges.sort(key=lambda x: (x["query_start"], x["source_start"]))
+
     # Gộp các đoạn chồng lấn hoặc liền kề
+    # Điều kiện merge: cả query lẫn source đều gần nhau VÀ source đi cùng chiều (không lùi)
     merged_ranges = [matched_ranges[0].copy()]
     for rng in matched_ranges[1:]:
         last = merged_ranges[-1]
-        # Gộp nếu chồng lấn hoặc cách nhau tối đa 2 token
-        if rng["query_start"] <= last["query_end"] + 2:
-            last["query_end"] = max(last["query_end"], rng["query_end"])
+        query_gap  = rng["query_start"]  - last["query_end"]
+        source_gap = rng["source_start"] - last["source_end"]
+        # Gộp khi:
+        # 1. query gần nhau (chồng lấn hoặc cách ≤ 2 token)
+        # 2. source gần nhau (chồng lấn hoặc cách ≤ 2 token)
+        # 3. source không đi ngược chiều (source_start >= source_start của last)
+        if query_gap <= 2 and -k < source_gap <= 2:
+            last["query_end"]  = max(last["query_end"],  rng["query_end"])
             last["source_end"] = max(last["source_end"], rng["source_end"])
         else:
             merged_ranges.append(rng.copy())
@@ -158,8 +164,8 @@ def find_common_shingles(
         query_text = " ".join(query_tokens[q_start:q_end])
         source_text = " ".join(source_tokens[s_start:s_end])
         
-        # Chỉ lấy đoạn có ý nghĩa (>= 2 từ)
-        if len(query_text.split()) >= 2:
+        # Chỉ lấy đoạn có ý nghĩa (>= 7 từ)
+        if len(query_text.split()) >= 10:
             segments.append({
                 "query_start": q_start,
                 "query_end": q_end,
